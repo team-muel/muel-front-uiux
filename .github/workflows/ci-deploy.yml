@@ -1,0 +1,84 @@
+name: CI — Migrate & Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  migrate-and-deploy:
+    name: Migrate, Build, Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Install psql (for migrations)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Try Supabase CLI migrations (optional)
+        if: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY != '' && secrets.SUPABASE_PROJECT_REF != '' }}
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          echo "Attempting Supabase CLI migration deploy"
+          npm i -g supabase || true
+          # Attempt deployment using supabase CLI; if this fails we'll fall back to psql step below
+          supabase --version || true
+          supabase migration deploy --project-ref $SUPABASE_PROJECT_REF --service-role-key $SUPABASE_SERVICE_ROLE_KEY || true
+
+      - name: Run DB migrations (supabase/migrations)
+        if: ${{ secrets.DATABASE_URL != '' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "Running SQL migrations from supabase/migrations"
+          ls -1 supabase/migrations || exit 0
+          for f in supabase/migrations/*.sql; do
+            echo "Applying $f"
+            psql "$DATABASE_URL" -f "$f"
+          done
+
+      - name: Trigger Render deploy (server & worker)
+        if: ${{ secrets.RENDER_SERVICE_ID != '' && secrets.RENDER_API_KEY != '' }}
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          echo "Triggering Render deploy for $RENDER_SERVICE_ID"
+          curl -s -X POST "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            | jq -r '.message // .id // .' || true
+
+      - name: Trigger Vercel deploy (optional)
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_PROJECT_ID != '' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          echo "Triggering Vercel deployment (optional)"
+          curl -s -X POST "https://api.vercel.com/v13/deployments" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"name":"'$VERCEL_PROJECT_ID'","target":"production"}' \
+            || echo "Vercel trigger may fail if GitHub integration is active"
