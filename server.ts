@@ -639,7 +639,8 @@ interface DiscordGuild {
   }
 
   // Start the Discord Bot if token is in env (accept multiple env var names)
-  const token = process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_TOKEN;
+  const rawToken = process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_TOKEN || '';
+  const token = rawToken.trim();
   const loginTimeoutMs = Number(process.env.DISCORD_LOGIN_TIMEOUT_MS || 30000);
   console.log('DEBUG: Token exists?', !!token, '| Key length:', token?.length || 0);
   console.log(`[RENDER_EVENT] BOT_TOKEN_PRESENT value=${!!token}`);
