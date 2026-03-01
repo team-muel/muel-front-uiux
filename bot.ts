@@ -2,6 +2,9 @@ import { startBot } from './src/bot';
 
 const token = process.env.DISCORD_TOKEN || process.env.DISCORD_BOT_TOKEN;
 
+// 봇이 안 켜질 때 범인을 찾는 디버그 로그
+console.log('DEBUG: Token exists?', !!token, '| Key length:', token?.length || 0);
+
 if (!token) {
   console.error('DISCORD token not provided. Set DISCORD_TOKEN or DISCORD_BOT_TOKEN.');
   process.exit(1);

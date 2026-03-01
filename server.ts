@@ -607,6 +607,7 @@ interface DiscordGuild {
 
   // Start the Discord Bot if token is in env (accept multiple env var names)
   const token = process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_TOKEN;
+  console.log('DEBUG: Token exists?', !!token, '| Key length:', token?.length || 0);
   if (token) {
     startBot(token);
   }
