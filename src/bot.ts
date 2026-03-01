@@ -1,7 +1,11 @@
 import { Client, GatewayIntentBits, ChannelType, ForumChannel, AttachmentBuilder, TextChannel } from 'discord.js';
+import { lookup, setDefaultResultOrder } from 'node:dns';
 import { supabase } from './supabase';
 
 const loginTimeoutMs = Number(process.env.DISCORD_LOGIN_TIMEOUT_MS || 30000);
+
+setDefaultResultOrder('ipv4first');
+console.log('[RENDER_EVENT] DNS_RESULT_ORDER value=ipv4first scope=src_bot');
 
 const intents = [
   GatewayIntentBits.Guilds,
@@ -32,6 +36,10 @@ client.on('warn', (message) => {
 });
 
 client.on('debug', console.log);
+
+client.rest.on('rateLimited', (info) => {
+  console.log(`[RENDER_EVENT] BOT_REST_RATE_LIMIT route=${info.route} retryAfter=${info.retryAfter} limit=${info.limit}`);
+});
 
 client.on('shardError', (error, shardId) => {
   const errCode = typeof error === 'object' && error && 'code' in error ? String((error as { code?: unknown }).code ?? 'unknown') : 'unknown';
@@ -139,30 +147,91 @@ export function startBot(token: string) {
   const messageContentEnv = process.env.DISCORD_ENABLE_MESSAGE_CONTENT;
   const guildPresencesEnv = process.env.DISCORD_ENABLE_GUILD_PRESENCES;
   console.log(`[RENDER_EVENT] BOT_INTENTS envMessageContent=${messageContentEnv ?? 'undefined'} envGuildPresences=${guildPresencesEnv ?? 'undefined'} effectiveMessageContent=true effectiveGuildPresences=true`);
-  console.log('[RENDER_EVENT] BOT_LOGIN_ATTEMPT');
 
-  const timeout = setTimeout(() => {
-    if (!client.isReady()) {
-      console.log(`[RENDER_EVENT] BOT_LOGIN_TIMEOUT ms=${loginTimeoutMs}`);
-      console.error('[Discord Bot] Login timed out before ready event.');
-    }
-  }, loginTimeoutMs);
-  
-  client
-    .login(normalizedToken)
-    .then(() => {
-      console.log('[RENDER_EVENT] BOT_LOGIN_PROMISE_RESOLVED');
-    })
-    .catch((err) => {
-      const errCode = typeof err === 'object' && err && 'code' in err ? String((err as { code?: unknown }).code ?? 'unknown') : 'unknown';
-      const errMessage = err instanceof Error ? err.message : String(err);
-      clearTimeout(timeout);
-      console.log(`[RENDER_EVENT] BOT_LOGIN_FAILED code=${errCode}`);
-      console.error('[Discord Bot] Failed to login:', err);
-      logEvent(`Login failed: [${errCode}] ${errMessage}`, 'error');
+  const logDnsResolution = (host: string) => {
+    lookup(host, { all: true }, (err, addresses) => {
+      if (err) {
+        const errCode = typeof err === 'object' && err && 'code' in err ? String((err as { code?: unknown }).code ?? 'unknown') : 'unknown';
+        console.log(`[RENDER_EVENT] DNS_LOOKUP_FAILED host=${host} code=${errCode}`);
+        console.error(`[DNS] lookup failed host=${host}:`, err);
+        return;
+      }
+
+      const joined = (addresses || []).map((item) => `${item.address}/v${item.family}`).join(',');
+      console.log(`[RENDER_EVENT] DNS_LOOKUP_OK host=${host} addresses=${joined || 'none'}`);
     });
+  };
 
-  client.once('ready', () => {
-    clearTimeout(timeout);
-  });
+  logDnsResolution('gateway.discord.gg');
+  logDnsResolution('discord.com');
+
+  let hasRetried = false;
+  let attempt = 0;
+
+  const runLoginAttempt = () => {
+    attempt += 1;
+    const startedAt = Date.now();
+    console.log(`[RENDER_EVENT] BOT_LOGIN_ATTEMPT n=${attempt}`);
+
+    const progressInterval = setInterval(() => {
+      if (client.isReady()) {
+        clearInterval(progressInterval);
+        return;
+      }
+      console.log(`[RENDER_EVENT] BOT_LOGIN_PROGRESS wsStatus=${client.ws.status} elapsedMs=${Date.now() - startedAt}`);
+    }, 10000);
+
+    const timeout = setTimeout(() => {
+      if (client.isReady()) {
+        clearInterval(progressInterval);
+        return;
+      }
+
+      clearInterval(progressInterval);
+      console.log(`[RENDER_EVENT] BOT_LOGIN_TIMEOUT ms=${loginTimeoutMs} attempt=${attempt}`);
+      console.error('[Discord Bot] Login timed out before ready event.');
+
+      if (!hasRetried) {
+        hasRetried = true;
+        console.log('[RENDER_EVENT] BOT_LOGIN_RETRY reason=timeout delayMs=5000');
+        try {
+          client.destroy();
+        } catch (destroyErr) {
+          console.error('[Discord Bot] Failed to destroy client before retry:', destroyErr);
+        }
+        setTimeout(runLoginAttempt, 5000);
+      }
+    }, loginTimeoutMs);
+
+    client
+      .login(normalizedToken)
+      .then(() => {
+        clearTimeout(timeout);
+        clearInterval(progressInterval);
+        console.log(`[RENDER_EVENT] BOT_LOGIN_PROMISE_RESOLVED attempt=${attempt}`);
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        clearInterval(progressInterval);
+
+        const errCode = typeof err === 'object' && err && 'code' in err ? String((err as { code?: unknown }).code ?? 'unknown') : 'unknown';
+        const errMessage = err instanceof Error ? err.message : String(err);
+        console.log(`[RENDER_EVENT] BOT_LOGIN_FAILED code=${errCode} attempt=${attempt}`);
+        console.error('[Discord Bot] Failed to login:', err);
+        logEvent(`Login failed: [${errCode}] ${errMessage}`, 'error');
+
+        if (!hasRetried) {
+          hasRetried = true;
+          console.log('[RENDER_EVENT] BOT_LOGIN_RETRY reason=login_failed delayMs=5000');
+          setTimeout(runLoginAttempt, 5000);
+        }
+      });
+
+    client.once('ready', () => {
+      clearTimeout(timeout);
+      clearInterval(progressInterval);
+    });
+  };
+
+  runLoginAttempt();
 }
