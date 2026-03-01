@@ -6,16 +6,11 @@
   "scripts": {
     "dev": "vite",
     "dev:full": "concurrently \"vite\" \"tsx server.ts\"",
-    "dev:server": "tsx server.ts",
-    "dev:bot": "tsx bot.ts",
-    "build": "tsc && vite build",
-    "build:server": "tsc",
-    "start": "node dist/server.js",
-    "start:server": "node dist/server.js",
-    "start:bot": "node dist/bot.js",
+    "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "check:tailwind-binding": "node -e \"require('@tailwindcss/oxide'); console.log('tailwind oxide binding ok')\""
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
