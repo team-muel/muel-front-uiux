@@ -10,6 +10,7 @@ export const client = new Client({
 });
 
 client.once('clientReady', () => {
+  console.log(`[RENDER_EVENT] BOT_READY tag=${client.user?.tag || 'unknown'}`);
   console.log(`[Discord Bot] Ready! Logged in as ${client.user?.tag}`);
   logEvent('Bot started successfully', 'info');
 });
@@ -85,11 +86,15 @@ export async function createForumThread(forumChannelId: string, title: string, c
 // Start the bot if token is available
 export function startBot(token: string) {
   if (!token) {
+    console.log('[RENDER_EVENT] BOT_START_SKIPPED reason=missing_token');
     console.log('[Discord Bot] No token provided, bot will not start.');
     return;
   }
+
+  console.log('[RENDER_EVENT] BOT_LOGIN_ATTEMPT');
   
   client.login(token).catch((err) => {
+    console.log('[RENDER_EVENT] BOT_LOGIN_FAILED');
     console.error('[Discord Bot] Failed to login:', err);
     logEvent(`Login failed: ${err.message}`, 'error');
   });

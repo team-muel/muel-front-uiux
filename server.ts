@@ -608,8 +608,11 @@ interface DiscordGuild {
   // Start the Discord Bot if token is in env (accept multiple env var names)
   const token = process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_TOKEN;
   console.log('DEBUG: Token exists?', !!token, '| Key length:', token?.length || 0);
+  console.log(`[RENDER_EVENT] BOT_TOKEN_PRESENT value=${!!token}`);
   if (token) {
     startBot(token);
+  } else {
+    console.log('[RENDER_EVENT] BOT_START_SKIPPED reason=missing_token');
   }
 
   // Schedule background job using cron to ensure it keeps running even if errors occur
@@ -626,6 +629,7 @@ interface DiscordGuild {
   setTimeout(() => runBackgroundJob().catch(err => console.error('[Background Job] Initial run error:', err)), 10000);
 
   app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[RENDER_EVENT] SERVER_READY port=${PORT}`);
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
