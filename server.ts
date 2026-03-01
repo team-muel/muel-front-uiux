@@ -174,6 +174,16 @@ async function startServer() {
     }
   };
 
+  const issueAuthCookie = (res: Response, jwtPayload: JwtUser) => {
+    const token = jwt.sign(jwtPayload, sessionSecret, { expiresIn: '7d' });
+    res.cookie('auth_token', token, {
+      secure: true,
+      sameSite: 'none',
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+  };
+
   // --- API Routes ---
   
   // Auth Routes
@@ -276,18 +286,7 @@ async function startServer() {
         tokenExpiresAt
       };
 
-      const token = jwt.sign(
-        jwtPayload,
-        sessionSecret,
-        { expiresIn: '7d' }
-      );
-
-      res.cookie('auth_token', token, {
-        secure: true,
-        sameSite: 'none',
-        httpOnly: true,
-        maxAge: 7 * 24 * 60 * 60 * 1000
-      });
+      issueAuthCookie(res, jwtPayload);
 
       res.send(`
         <html>
@@ -509,6 +508,16 @@ async function startServer() {
       // Token refresh failed - session expired
       if (!refreshedUser || !refreshedUser.accessToken) {
         return res.status(401).json({ error: '세션이 만료되었습니다. 다시 로그인해주세요.' });
+      }
+
+      const tokenWasRefreshed =
+        refreshedUser.accessToken !== req.user.accessToken ||
+        refreshedUser.refreshToken !== req.user.refreshToken ||
+        refreshedUser.tokenExpiresAt !== req.user.tokenExpiresAt;
+
+      if (tokenWasRefreshed) {
+        issueAuthCookie(res, refreshedUser);
+        req.user = refreshedUser;
       }
       
       const userResponse = await fetch('https://discord.com/api/users/@me/guilds', {
