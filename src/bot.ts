@@ -1,8 +1,6 @@
 import { Client, GatewayIntentBits, ChannelType, ForumChannel, AttachmentBuilder, TextChannel } from 'discord.js';
 import { supabase } from './supabase';
 
-const enableMessageContent = process.env.DISCORD_ENABLE_MESSAGE_CONTENT === 'true';
-const enableGuildPresences = process.env.DISCORD_ENABLE_GUILD_PRESENCES === 'true';
 const loginTimeoutMs = Number(process.env.DISCORD_LOGIN_TIMEOUT_MS || 30000);
 
 const intents = [
@@ -42,7 +40,7 @@ client.on('shardError', (error, shardId) => {
 client.on('shardDisconnect', (event, shardId) => {
   console.log(`[RENDER_EVENT] BOT_SHARD_DISCONNECT shard=${shardId} code=${event.code} reason=${event.reason || 'unknown'}`);
   if (event.code === 4014) {
-    console.log('[RENDER_EVENT] BOT_INTENTS_DISALLOWED_HINT check Discord Portal privileged intents or disable DISCORD_ENABLE_MESSAGE_CONTENT/DISCORD_ENABLE_GUILD_PRESENCES');
+    console.log('[RENDER_EVENT] BOT_INTENTS_DISALLOWED_HINT check Discord Portal privileged intents (Message Content / Presence Intent)');
   }
 });
 
@@ -136,7 +134,7 @@ export function startBot(token: string) {
   }
   console.log(`[RENDER_EVENT] BOT_TOKEN_FORMAT jwt_like=${tokenLooksJwtLike}`);
 
-  console.log(`[RENDER_EVENT] BOT_INTENTS messageContent=${enableMessageContent} guildPresences=${enableGuildPresences}`);
+  console.log('[RENDER_EVENT] BOT_INTENTS messageContent=true guildPresences=true');
   console.log('[RENDER_EVENT] BOT_LOGIN_ATTEMPT');
 
   const timeout = setTimeout(() => {

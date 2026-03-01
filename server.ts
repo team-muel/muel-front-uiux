@@ -3,9 +3,9 @@ import { createServer as createViteServer } from 'vite';
 import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import cron from 'node-cron';
-import { randomBytes } from 'crypto';
+import { randomBytes, timingSafeEqual } from 'crypto';
 import { supabase, isSupabaseConfigured } from './src/supabase';
-import { client, startBot, createForumThread } from './src/bot';
+import { client, startBot, createForumThread, logEvent } from './src/bot';
 import { scrapeYouTubePost } from './src/scraper';
 import { ChannelType } from 'discord.js';
 import { JwtUser, Source, SettingsRow, AuthenticatedRequest } from './src/types';
@@ -32,18 +32,26 @@ async function processSource(source: Source) {
     if (source.last_post_signature !== postSignature) {
       console.log(`[Background Job] New post detected for ${author} (User: ${userId})`);
 
-      let imageBase64: string | undefined;
-      if (imageUrl) {
-        imageBase64 = await imageUrlToBase64(imageUrl);
+      if (!client.isReady()) {
+        const offlineMessage = 'Discord bot is not ready. New post dispatch deferred.';
+        console.warn(`[Background Job] ${offlineMessage} source=${source.id}`);
+        await logEvent(`${offlineMessage} source=${source.id}`, 'error', userId);
+        updateData.last_check_status = 'error';
+        updateData.last_check_error = offlineMessage;
+      } else {
+        let imageBase64: string | undefined;
+        if (imageUrl) {
+          imageBase64 = await imageUrlToBase64(imageUrl);
+        }
+
+        const title = `${author}님의 새 커뮤니티 게시글`;
+        const maxContentLength = 1800;
+        const truncatedContent = truncateText(content || '내용 없음', maxContentLength);
+        const fullContent = `${truncatedContent}\n\n🔗 원본 링크: ${source.url}`;
+
+        await createForumThread(forumChannelId, title, fullContent, imageBase64, userId);
+        updateData.last_post_signature = postSignature;
       }
-
-      const title = `${author}님의 새 커뮤니티 게시글`;
-      const maxContentLength = 1800;
-      const truncatedContent = truncateText(content || '내용 없음', maxContentLength);
-      const fullContent = `${truncatedContent}\n\n🔗 원본 링크: ${source.url}`;
-
-      await createForumThread(forumChannelId, title, fullContent, imageBase64, userId);
-      updateData.last_post_signature = postSignature;
     }
 
     const { error: updateError } = await supabase.from('sources').update(updateData).eq('id', source.id);
@@ -68,7 +76,7 @@ async function processSource(source: Source) {
 }
 
 async function runBackgroundJob() {
-  if (!isSupabaseConfigured || !client.isReady()) return;
+  if (!isSupabaseConfigured) return;
 
   try {
     // 1. Get all sources directly
@@ -166,6 +174,13 @@ async function startServer() {
     // Enhanced CSRF protection: include random nonce in state
     const nonce = randomBytes(16).toString('hex');
     const state = Buffer.from(JSON.stringify({ redirectUri, nonce })).toString('base64');
+
+    res.cookie('oauth_nonce', nonce, {
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      httpOnly: true,
+      maxAge: 10 * 60 * 1000,
+    });
     
     const params = new URLSearchParams({
       client_id: process.env.DISCORD_CLIENT_ID || '',
@@ -188,6 +203,24 @@ async function startServer() {
       nonce = decodedState.nonce;
     } catch (e) {
       return res.status(400).send('Invalid state parameter');
+    }
+
+    const nonceCookie = req.cookies.oauth_nonce;
+    res.clearCookie('oauth_nonce', {
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      httpOnly: true,
+    });
+
+    if (!nonceCookie || !nonce) {
+      return res.status(400).send('Invalid OAuth nonce');
+    }
+
+    const nonceFromState = Buffer.from(nonce, 'utf-8');
+    const nonceFromCookie = Buffer.from(nonceCookie, 'utf-8');
+    const nonceValid = nonceFromState.length === nonceFromCookie.length && timingSafeEqual(nonceFromState, nonceFromCookie);
+    if (!nonceValid) {
+      return res.status(400).send('OAuth nonce validation failed');
     }
 
     try {
@@ -607,17 +640,10 @@ interface DiscordGuild {
 
   // Start the Discord Bot if token is in env (accept multiple env var names)
   const token = process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_TOKEN;
-  const enableMessageContent = process.env.DISCORD_ENABLE_MESSAGE_CONTENT === 'true';
-  const enableGuildPresences = process.env.DISCORD_ENABLE_GUILD_PRESENCES === 'true';
   const loginTimeoutMs = Number(process.env.DISCORD_LOGIN_TIMEOUT_MS || 30000);
   console.log('DEBUG: Token exists?', !!token, '| Key length:', token?.length || 0);
   console.log(`[RENDER_EVENT] BOT_TOKEN_PRESENT value=${!!token}`);
-  console.log(`[RENDER_EVENT] BOT_ENV_FLAGS messageContent=${enableMessageContent} guildPresences=${enableGuildPresences} loginTimeoutMs=${loginTimeoutMs}`);
-  if (token) {
-    startBot(token);
-  } else {
-    console.log('[RENDER_EVENT] BOT_START_SKIPPED reason=missing_token');
-  }
+  console.log(`[RENDER_EVENT] BOT_ENV_FLAGS messageContent=true guildPresences=true loginTimeoutMs=${loginTimeoutMs}`);
 
   // Schedule background job using cron to ensure it keeps running even if errors occur
   // Runs every 10 minutes
@@ -635,6 +661,12 @@ interface DiscordGuild {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[RENDER_EVENT] SERVER_READY port=${PORT}`);
     console.log(`Server running on http://localhost:${PORT}`);
+
+    if (token) {
+      setImmediate(() => startBot(token));
+    } else {
+      console.log('[RENDER_EVENT] BOT_START_SKIPPED reason=missing_token');
+    }
   });
 }
 
