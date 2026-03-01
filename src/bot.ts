@@ -94,8 +94,10 @@ export function startBot(token: string) {
   console.log('[RENDER_EVENT] BOT_LOGIN_ATTEMPT');
   
   client.login(token).catch((err) => {
-    console.log('[RENDER_EVENT] BOT_LOGIN_FAILED');
+    const errCode = typeof err === 'object' && err && 'code' in err ? String((err as { code?: unknown }).code ?? 'unknown') : 'unknown';
+    const errMessage = err instanceof Error ? err.message : String(err);
+    console.log(`[RENDER_EVENT] BOT_LOGIN_FAILED code=${errCode}`);
     console.error('[Discord Bot] Failed to login:', err);
-    logEvent(`Login failed: ${err.message}`, 'error');
+    logEvent(`Login failed: [${errCode}] ${errMessage}`, 'error');
   });
 }
