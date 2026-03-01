@@ -31,6 +31,8 @@ client.on('warn', (message) => {
   console.log(`[RENDER_EVENT] BOT_WARN ${message}`);
 });
 
+client.on('debug', console.log);
+
 client.on('shardError', (error, shardId) => {
   const errCode = typeof error === 'object' && error && 'code' in error ? String((error as { code?: unknown }).code ?? 'unknown') : 'unknown';
   console.log(`[RENDER_EVENT] BOT_SHARD_ERROR shard=${shardId} code=${errCode}`);
