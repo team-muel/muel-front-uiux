@@ -6,7 +6,12 @@
   "scripts": {
     "dev": "vite",
     "dev:full": "concurrently \"vite\" \"tsx server.ts\"",
+    "dev:server": "tsx server.ts",
+    "dev:bot": "tsx bot.ts",
     "build": "vite build",
+    "start": "npm run start:server",
+    "start:server": "tsx server.ts",
+    "start:bot": "tsx bot.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",

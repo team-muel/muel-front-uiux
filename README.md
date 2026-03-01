@@ -58,13 +58,12 @@ YouTube가 내부 스크립트 형식을 수정하는 즉시 크롤러가 깨질
 
 ## 배포 및 환경 변수 가이드
 
-아래 가이드는 이 저장소(`package.json`의 스크립트 기준)를 Vercel(프론트), Render(서버/봇), Supabase(DB/Auth/Storage)로 배포할 때 권장되는 설정을 요약합니다.
+아래 가이드는 이 저장소(`package.json`의 스크립트 기준)를 Vercel(프론트), Render(서버), Supabase(DB/Auth/Storage)로 배포할 때 권장되는 설정을 요약합니다.
 
 ### 1) 핵심 아키텍처
 
 - Frontend: Vercel — Vite로 정적 빌드 배포
-- Backend (API): Render Web Service — `server.ts`를 호스팅
-- Bot: Render Background Worker — `bot.ts`를 항상 실행
+- Backend + Bot: Render Web Service — `server.ts`를 호스팅하고 내부에서 봇을 함께 실행
 - DB/Auth/Storage: Supabase
 
 ### 2) 환경 변수(권장 이름)
@@ -85,19 +84,18 @@ YouTube가 내부 스크립트 형식을 수정하는 즉시 크롤러가 깨질
 ### 3) `package.json` 스크립트(이미 추가됨)
 
 - 개발: `npm run dev` (프론트), `npm run dev:server`, `npm run dev:bot`
-- 빌드: `npm run build` (TypeScript 컴파일 + Vite 빌드)
-- 시작(프로덕션): `npm run start:server`, `npm run start:bot`
+- 빌드: `npm run build` (Vite 빌드)
+- 시작(프로덕션): `npm run start:server` (`server.ts`가 봇도 같이 시작)
 
 ### 4) Vercel 설정 (프론트)
 
 - GitHub 연동 → Build Command: `npm run build` → Output Directory: `dist`(Vite 설정 확인)
 - 환경변수: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 
-### 5) Render 설정 (서버 + bot)
+### 5) Render 설정 (단일 Web Service)
 
 - Web Service: Build `npm ci && npm run build`, Start `npm run start:server`, Health check 경로 예: `/health`
-- Background Worker: Build 동일, Start `npm run start:bot`
-- 환경변수: `SUPABASE_SERVICE_ROLE_KEY`, `DISCORD_TOKEN`, `DATABASE_URL` 등
+- 환경변수: `SUPABASE_SERVICE_ROLE_KEY`, `DISCORD_TOKEN`(또는 `DISCORD_BOT_TOKEN`), `DATABASE_URL` 등
 
 Render 생성 팁:
 
@@ -106,10 +104,6 @@ Render 생성 팁:
   - Build Command: `npm ci && npm run build`
   - Start Command: `npm run start:server`
   - Health Check Path: `/health` (HTTP 200이면 정상)
-- Background Worker
-  - Build Command: `npm ci && npm run build`
-  - Start Command: `npm run start:bot`
-  - Set auto-restart on crash
 
 포트: Render는 `PORT` 환경변수로 포트를 주입하므로 `server.ts`는 `process.env.PORT`를 사용합니다.
 
@@ -147,18 +141,17 @@ npm run dev:server
 npm run dev:bot
 
 # 빌드(프로덕션 테스트)
+npm run build
 
-
-# 프로덕션 빌드 후 서버/봇 실행(로컬 검증용)
-node dist/server.js
-node dist/bot.js
+# 프로덕션 방식으로 서버 실행(로컬 검증용)
+npm run start:server
 ```
 
 ### 9) 체크리스트(배포 전)
 
 - `SUPABASE_SERVICE_ROLE_KEY`는 서버/CI에만 존재
 - Vercel에는 `VITE_` 접두사의 환경변수만 노출
-- Render의 Web/Worker에 올바른 Start 명령과 Health check 설정
+- Render Web Service에 올바른 Start 명령과 Health check 설정
 - CI에서 마이그레이션이 안전하게 실행되도록 구성
 
 운영 모니터링 및 로깅 권장 설정:

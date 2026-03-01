@@ -7,7 +7,7 @@ services:
     plan: free # choose appropriate plan
     repo: "<GIT_REPO_URL>"
     branch: main
-    buildCommand: "npm ci && npm run build"
+    buildCommand: "npm ci --include=dev && npm run build"
     startCommand: "npm run start:server"
     envVars:
       - key: NODE_ENV
@@ -19,22 +19,4 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         fromDatabase: false
       - key: DATABASE_URL
-        fromDatabase: false
-
-  - type: worker
-    name: yt-discord-bot-worker
-    env: node
-    plan: free
-    repo: "<GIT_REPO_URL>"
-    branch: main
-    buildCommand: "npm ci && npm run build"
-    startCommand: "npm run start:bot"
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DISCORD_TOKEN
-        fromDatabase: false
-      - key: SUPABASE_URL
-        fromDatabase: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
         fromDatabase: false
