@@ -4,12 +4,15 @@ import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
 import cron from 'node-cron';
 import { randomBytes, timingSafeEqual } from 'crypto';
+import { setDefaultResultOrder } from 'dns';
 import { supabase, isSupabaseConfigured } from './src/supabase';
 import { client, startBot, createForumThread, logEvent } from './src/bot';
 import { scrapeYouTubePost } from './src/scraper';
 import { ChannelType } from 'discord.js';
 import { JwtUser, Source, SettingsRow, AuthenticatedRequest } from './src/types';
 import { imageUrlToBase64, truncateText, MAX_SOURCES_PER_GUILD, DEFAULT_PAGE_LIMIT, MAX_LOGS_DISPLAY, getSafeErrorMessage, validateYouTubeUrl } from './src/utils';
+
+setDefaultResultOrder('ipv4first');
 
 // --- Background Job ---
 

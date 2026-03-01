@@ -1,4 +1,7 @@
 import { startBot } from './src/bot';
+import { setDefaultResultOrder } from 'dns';
+
+setDefaultResultOrder('ipv4first');
 
 const token = process.env.DISCORD_TOKEN || process.env.DISCORD_BOT_TOKEN;
 
