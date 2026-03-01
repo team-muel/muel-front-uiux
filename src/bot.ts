@@ -19,7 +19,7 @@ export const client = new Client({
   intents,
 });
 
-client.on('ready', () => {
+client.on('clientReady', () => {
   console.log(`[RENDER_EVENT] BOT_READY tag=${client.user?.tag || 'unknown'}`);
   console.log(`✅ [SUCCESS] Logged in as ${client.user?.tag}`);
   logEvent('Bot started successfully', 'info');
@@ -270,7 +270,7 @@ export function startBot(token: string) {
         }
       });
 
-    client.once('ready', () => {
+    client.once('clientReady', () => {
       clearTimeout(timeout);
       clearInterval(progressInterval);
     });
