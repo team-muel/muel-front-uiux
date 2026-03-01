@@ -14,6 +14,54 @@ import { imageUrlToBase64, truncateText, MAX_SOURCES_PER_GUILD, DEFAULT_PAGE_LIM
 
 setDefaultResultOrder('ipv4first');
 
+type BenchmarkPayload = Record<string, string | number | boolean | null | undefined>;
+
+type BenchmarkEventRow = {
+  id: string;
+  name: string;
+  payload?: BenchmarkPayload;
+  path: string;
+  ts: string;
+};
+
+const benchmarkMemoryStore = new Map<string, BenchmarkEventRow[]>();
+const BENCHMARK_MEMORY_LIMIT = 2000;
+
+const appendBenchmarkMemoryEvents = (userId: string, events: BenchmarkEventRow[]) => {
+  const previous = benchmarkMemoryStore.get(userId) || [];
+  const next = [...previous, ...events].slice(-BENCHMARK_MEMORY_LIMIT);
+  benchmarkMemoryStore.set(userId, next);
+};
+
+const summarizeBenchmarkEvents = (events: BenchmarkEventRow[]) => {
+  const eventCounts = events.reduce<Record<string, number>>((acc, event) => {
+    acc[event.name] = (acc[event.name] || 0) + 1;
+    return acc;
+  }, {});
+
+  const routeCounts = events.reduce<Record<string, number>>((acc, event) => {
+    acc[event.path] = (acc[event.path] || 0) + 1;
+    return acc;
+  }, {});
+
+  const topEvents = Object.entries(eventCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([name, count]) => ({ name, count }));
+
+  const topRoutes = Object.entries(routeCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([path, count]) => ({ path, count }));
+
+  return {
+    totalEvents: events.length,
+    topEvents,
+    topRoutes,
+    lastEventAt: events[events.length - 1]?.ts || null,
+  };
+};
+
 // --- Background Job ---
 
 // process a single source entry, returning when done (or throwing)
@@ -596,6 +644,97 @@ interface DiscordGuild {
     } catch (error: unknown) {
       const safeMsg = getSafeErrorMessage(error, 'GET /api/logs');
       res.status(500).json({ error: safeMsg });
+    }
+  });
+
+  app.post('/api/benchmark/events', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const rawEvents = Array.isArray(req.body?.events) ? req.body.events : [];
+      const events: BenchmarkEventRow[] = rawEvents
+        .slice(0, 120)
+        .map((event: Partial<BenchmarkEventRow>) => ({
+          id: String(event.id || randomBytes(8).toString('hex')),
+          name: String(event.name || 'unknown_event'),
+          payload: event.payload && typeof event.payload === 'object' ? event.payload : undefined,
+          path: String(event.path || '/'),
+          ts: String(event.ts || new Date().toISOString()),
+        }));
+
+      if (!events.length) {
+        return res.json({ accepted: 0, stored: 'none' });
+      }
+
+      if (isSupabaseConfigured) {
+        const { error } = await supabase.from('benchmark_events').insert(
+          events.map((event) => ({
+            user_id: req.user.id,
+            event_id: event.id,
+            name: event.name,
+            payload: event.payload || {},
+            path: event.path,
+            created_at: event.ts,
+          })),
+        );
+
+        if (!error) {
+          return res.json({ accepted: events.length, stored: 'supabase' });
+        }
+
+        console.warn('[Benchmark] Supabase insert failed, fallback to memory:', error.message);
+      }
+
+      appendBenchmarkMemoryEvents(req.user.id, events);
+      return res.json({ accepted: events.length, stored: 'memory' });
+    } catch (error: unknown) {
+      const safeMsg = getSafeErrorMessage(error, 'POST /api/benchmark/events');
+      return res.status(500).json({ error: safeMsg });
+    }
+  });
+
+  app.get('/api/benchmark/summary', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase
+          .from('benchmark_events')
+          .select('event_id,name,payload,path,created_at')
+          .eq('user_id', req.user.id)
+          .order('created_at', { ascending: true })
+          .limit(1200);
+
+        if (!error && data) {
+          const events: BenchmarkEventRow[] = data.map((item: {
+            event_id?: string;
+            name: string;
+            payload?: BenchmarkPayload;
+            path: string;
+            created_at?: string;
+          }) => ({
+            id: item.event_id || randomBytes(8).toString('hex'),
+            name: item.name,
+            payload: item.payload,
+            path: item.path,
+            ts: item.created_at || new Date().toISOString(),
+          }));
+
+          return res.json({
+            ...summarizeBenchmarkEvents(events),
+            source: 'supabase',
+          });
+        }
+
+        if (error) {
+          console.warn('[Benchmark] Supabase summary query failed, fallback to memory:', error.message);
+        }
+      }
+
+      const events = benchmarkMemoryStore.get(req.user.id) || [];
+      return res.json({
+        ...summarizeBenchmarkEvents(events),
+        source: 'memory',
+      });
+    } catch (error: unknown) {
+      const safeMsg = getSafeErrorMessage(error, 'GET /api/benchmark/summary');
+      return res.status(500).json({ error: safeMsg });
     }
   });
 
