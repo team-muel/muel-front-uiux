@@ -16,8 +16,18 @@
 - `VERCEL_TOKEN` : Vercel API 토큰 (선택)
 - `VERCEL_PROJECT_ID` : Vercel 프로젝트 이름 또는 ID (선택)
 - `DISCORD_TOKEN` : Discord 봇 토큰 (서버/워커용)
+- `DISCORD_RECONNECT_DELAY_MS` : Discord 세션 무효화/샤드 단절 시 자동 재접속 지연(ms, 선택)
 - `GEMINI_API_KEY` : Gemini(또는 다른 AI) API 키 (선택)
 - `SESSION_SECRET` : JWT/세션 서명용 랜덤 문자열
+- `RESEARCH_PRESET_ADMIN_USER_IDS` : 리서치 프리셋 업서트 API 접근 허용 Discord 사용자 ID 목록(콤마 구분)
+- `DISCORD_COMMAND_GUILD_ID` : 슬래시 명령을 특정 Discord 길드에 즉시 등록할 때 사용하는 길드 ID(선택)
+- `RESEARCH_STUDIO_URL` : Discord 프리셋 명령 성공 응답에 Studio 이력 패널 링크를 첨부할 때 사용하는 프론트 기준 URL(선택)
+- `RESEARCH_PRESET_MUTATION_COOLDOWN_MS` : Discord restore/upsert 계열 명령 중복 실행 방지 쿨다운(ms, 기본 8000, 선택)
+
+링크 동작 참고:
+
+- Discord 응답의 Studio 링크는 `/studio?preset=<presetKey>&historyId=<historyId>#preset-history` 형태로 생성되며, Studio 화면에서 해당 이력 항목으로 자동 포커스됩니다.
+- `/preset-history`의 `Restore` 버튼은 명령 실행자 + 관리자 allowlist 조건을 동시에 만족해야 동작합니다.
 
 ---
 
@@ -118,6 +128,12 @@ supabase db push # 또는 supabase migration deploy
 # DATABASE_URL 예: postgres://user:pass@host:5432/dbname
 psql "$DATABASE_URL" -f supabase/migrations/001_create_users.sql
 ```
+
+리서치 프리셋 운영 기능을 쓰려면 아래 마이그레이션도 적용해야 합니다.
+
+- `supabase/migrations/002_create_research_presets.sql`
+- `supabase/migrations/003_create_research_preset_audit.sql`
+- `supabase/migrations/004_add_research_preset_audit_metadata.sql`
 
 ---
 

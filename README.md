@@ -154,11 +154,63 @@ npm run start:server
 - Render Web Service에 올바른 Start 명령과 Health check 설정
 - CI에서 마이그레이션이 안전하게 실행되도록 구성
 
+### 10) Research Preset 시드
+
+`research_presets` 테이블 생성 후 기본 프리셋을 업서트하려면 아래를 실행하세요.
+
+```bash
+npm run seed:research-presets
+```
+
+필수 환경변수:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+관리자 업서트 API(`POST /api/research/preset/:presetKey`)를 사용할 경우 아래도 필요합니다.
+
+- `RESEARCH_PRESET_ADMIN_USER_IDS` (콤마 구분 Discord 사용자 ID 목록)
+
+관리자 API:
+
+- `POST /api/research/preset/:presetKey` : 프리셋 업서트
+- `GET /api/research/preset/:presetKey/history?limit=20` : 변경 이력 조회
+- `POST /api/research/preset/:presetKey/restore/:historyId` : 이력 스냅샷 복원
+
+Discord 슬래시 명령(관리자 전용):
+
+- `/preset-history preset_key:<embedded|studio> limit:<1~20>`
+- `/preset-restore preset_key:<embedded|studio> history_id:<uuid>`
+- `/preset-upsert preset_key:<embedded|studio> payload_json:<json>`
+- `/preset-upsert-from-history source_preset_key:<embedded|studio> history_id:<uuid> target_preset_key:<embedded|studio>`
+
+`/preset-history` 응답에는 5건 단위 `Restore` 버튼과 `Prev/Next` 페이지 버튼이 함께 제공되며, 명령 실행자(관리자)만 클릭 실행할 수 있습니다.
+
+관련 환경변수:
+
+- `RESEARCH_PRESET_ADMIN_USER_IDS` : Discord 사용자 ID allowlist
+- `DISCORD_COMMAND_GUILD_ID` (선택): 지정 길드에만 명령을 즉시 등록(개발/운영 검증 권장)
+- `RESEARCH_STUDIO_URL` (선택): Discord 명령 성공 응답에 Studio 이력 패널 링크를 포함할 때 사용하는 기준 URL (예: `https://your-frontend.example.com`)
+- `RESEARCH_PRESET_MUTATION_COOLDOWN_MS` (선택): Discord restore/upsert 계열 명령의 중복 실행 방지 쿨다운(ms, 기본 8000)
+- `DISCORD_RECONNECT_DELAY_MS` (선택): 세션 무효화/샤드 단절 발생 시 자동 재접속 대기 시간(ms, 기본 8000)
+
+Studio 링크 포맷(자동 생성):
+
+- `https://<frontend>/studio?preset=<presetKey>&historyId=<historyId>#preset-history`
+
+추가 마이그레이션:
+
+- `supabase/migrations/004_add_research_preset_audit_metadata.sql` (복원 출처 메타 기록)
+
 운영 모니터링 및 로깅 권장 설정:
 
 - Render: 서비스 로그 수집을 활성화하고, Crash/Restart 알림을 설정하세요.
 - Sentry/Datadog: 서버 예외 및 성능 모니터링 연동을 권장합니다.
 - Supabase: 스냅샷 및 백업 정책을 확인하세요.
+
+헬스체크 참고:
+
+- `/health` 응답에는 `bot` 상태 스냅샷(ready/wsStatus/lastLoginError/lastDisconnectCode 등)이 포함되며, 토큰이 존재하지만 비가용 상태면 `status=degraded`로 표시됩니다.
 
 문서나 워크플로 샘플을 더 원하시면 GitHub Actions 템플릿 또는 Render/Vercel 스냅샷을 생성해 드리겠습니다.
 

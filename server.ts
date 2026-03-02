@@ -6,8 +6,10 @@ import cron from 'node-cron';
 import { randomBytes, timingSafeEqual } from 'crypto';
 import { setDefaultResultOrder } from 'dns';
 import { supabase, isSupabaseConfigured } from './src/supabase';
-import { client, startBot, createForumThread, logEvent } from './src/bot';
+import { client, startBot, createForumThread, logEvent, getBotRuntimeStatus } from './src/bot';
 import { scrapeYouTubePost } from './src/scraper';
+import { getResolvedResearchPreset, isResearchPresetKey, type ResearchPresetKey, type ResolvedResearchPreset } from './src/content/researchContent';
+import { isResolvedResearchPreset } from './src/lib/researchPresetValidation';
 import { ChannelType } from 'discord.js';
 import { JwtUser, Source, SettingsRow, AuthenticatedRequest } from './src/types';
 import { imageUrlToBase64, truncateText, MAX_SOURCES_PER_GUILD, DEFAULT_PAGE_LIMIT, MAX_LOGS_DISPLAY, getSafeErrorMessage, validateYouTubeUrl } from './src/utils';
@@ -24,6 +26,31 @@ type BenchmarkEventRow = {
   ts: string;
 };
 
+type ResearchPresetSupabaseRow = {
+  payload?: unknown;
+};
+
+type ResearchPresetAuditInsertRow = {
+  preset_key: string;
+  actor_user_id: string;
+  actor_username: string;
+  source: 'upsert' | 'restore';
+  payload: ResolvedResearchPreset;
+  metadata?: Record<string, string | number | boolean | null>;
+  created_at: string;
+};
+
+type ResearchPresetAuditSelectRow = {
+  id: string;
+  preset_key: string;
+  actor_user_id: string;
+  actor_username: string;
+  source: 'supabase' | 'upsert' | 'restore';
+  payload: unknown;
+  metadata?: unknown;
+  created_at: string;
+};
+
 const benchmarkMemoryStore = new Map<string, BenchmarkEventRow[]>();
 const BENCHMARK_MEMORY_LIMIT = 2000;
 
@@ -31,6 +58,49 @@ const appendBenchmarkMemoryEvents = (userId: string, events: BenchmarkEventRow[]
   const previous = benchmarkMemoryStore.get(userId) || [];
   const next = [...previous, ...events].slice(-BENCHMARK_MEMORY_LIMIT);
   benchmarkMemoryStore.set(userId, next);
+};
+
+const appendServerBenchmarkEvent = async ({
+  userId,
+  name,
+  path,
+  payload,
+}: {
+  userId: string;
+  name: string;
+  path: string;
+  payload?: BenchmarkPayload;
+}) => {
+  const event: BenchmarkEventRow = {
+    id: randomBytes(8).toString('hex'),
+    name,
+    payload,
+    path,
+    ts: new Date().toISOString(),
+  };
+
+  if (isSupabaseConfigured) {
+    try {
+      const { error } = await supabase.from('benchmark_events').insert([
+        {
+          user_id: userId,
+          event_id: event.id,
+          name: event.name,
+          payload: event.payload || {},
+          path: event.path,
+          created_at: event.ts,
+        },
+      ]);
+
+      if (!error) {
+        return;
+      }
+    } catch {
+      // fallback to memory store
+    }
+  }
+
+  appendBenchmarkMemoryEvents(userId, [event]);
 };
 
 const summarizeBenchmarkEvents = (events: BenchmarkEventRow[]) => {
@@ -60,6 +130,51 @@ const summarizeBenchmarkEvents = (events: BenchmarkEventRow[]) => {
     topRoutes,
     lastEventAt: events[events.length - 1]?.ts || null,
   };
+};
+
+const loadResearchPresetFromSupabase = async (presetKey: ResearchPresetKey): Promise<ResolvedResearchPreset | null> => {
+  if (!isSupabaseConfigured) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('research_presets')
+      .select('payload')
+      .eq('preset_key', presetKey)
+      .maybeSingle<ResearchPresetSupabaseRow>();
+
+    if (error) {
+      return null;
+    }
+
+    if (!data?.payload || !isResolvedResearchPreset(data.payload)) {
+      return null;
+    }
+
+    if (data.payload.key !== presetKey) {
+      return {
+        ...data.payload,
+        key: presetKey,
+      };
+    }
+
+    return data.payload;
+  } catch {
+    return null;
+  }
+};
+
+const appendResearchPresetAudit = async (row: ResearchPresetAuditInsertRow) => {
+  if (!isSupabaseConfigured) {
+    return;
+  }
+
+  try {
+    await supabase.from('research_preset_audit').insert(row);
+  } catch {
+    // audit failure should not block preset updates
+  }
 };
 
 // --- Background Job ---
@@ -159,7 +274,12 @@ async function startServer() {
 
   // Lightweight health check used by Render/Load balancers
   app.get('/health', (_req: Request, res: Response) => {
-    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+    const bot = getBotRuntimeStatus();
+    res.status(200).json({
+      status: bot.tokenPresent && !bot.ready ? 'degraded' : 'ok',
+      timestamp: new Date().toISOString(),
+      bot,
+    });
   });
 
   // Utility function to refresh Discord access token if expired
@@ -222,6 +342,26 @@ async function startServer() {
     }
   };
 
+  const presetAdminUserIds = new Set(
+    (process.env.RESEARCH_PRESET_ADMIN_USER_IDS || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  );
+
+  const requirePresetAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!presetAdminUserIds.size) {
+      return res.status(503).json({ error: 'Preset admin allowlist is not configured' });
+    }
+
+    const userId = req.user?.id;
+    if (!userId || !presetAdminUserIds.has(userId)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    next();
+  };
+
   const issueAuthCookie = (res: Response, jwtPayload: JwtUser) => {
     const token = jwt.sign(jwtPayload, sessionSecret, { expiresIn: '7d' });
     res.cookie('auth_token', token, {
@@ -233,6 +373,232 @@ async function startServer() {
   };
 
   // --- API Routes ---
+
+  app.get('/api/research/preset/:presetKey', async (req: Request, res: Response) => {
+    const presetKey = String(req.params.presetKey || '').trim();
+    if (!isResearchPresetKey(presetKey)) {
+      return res.status(404).json({ error: 'Unknown research preset key' });
+    }
+
+    const localPreset = getResolvedResearchPreset(presetKey);
+    const remotePreset = await loadResearchPresetFromSupabase(presetKey);
+
+    return res.status(200).json({
+      preset: remotePreset ?? localPreset,
+      source: remotePreset ? 'supabase' : 'local',
+    });
+  });
+
+  app.post('/api/research/preset/:presetKey', requireAuth, requirePresetAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    const presetKey = String(req.params.presetKey || '').trim();
+    if (!isResearchPresetKey(presetKey)) {
+      return res.status(404).json({ error: 'Unknown research preset key' });
+    }
+
+    if (!isSupabaseConfigured) {
+      return res.status(503).json({ error: 'Supabase is not configured' });
+    }
+
+    const candidatePayload = req.body?.preset;
+    if (!isResolvedResearchPreset(candidatePayload)) {
+      return res.status(400).json({ error: 'Invalid preset payload shape' });
+    }
+
+    const normalizedPayload: ResolvedResearchPreset = {
+      ...candidatePayload,
+      key: presetKey,
+    };
+
+    try {
+      const { error } = await supabase
+        .from('research_presets')
+        .upsert(
+          [
+            {
+              preset_key: presetKey,
+              payload: normalizedPayload,
+              updated_at: new Date().toISOString(),
+            },
+          ],
+          { onConflict: 'preset_key' },
+        );
+
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+
+      await appendResearchPresetAudit({
+        preset_key: presetKey,
+        actor_user_id: req.user.id,
+        actor_username: req.user.username,
+        source: 'upsert',
+        payload: normalizedPayload,
+        metadata: {
+          action: 'upsert',
+        },
+        created_at: new Date().toISOString(),
+      });
+
+      await appendServerBenchmarkEvent({
+        userId: req.user.id,
+        name: 'research_preset_upsert',
+        path: `/api/research/preset/${presetKey}`,
+        payload: {
+          presetKey,
+          actor: req.user.username,
+        },
+      });
+
+      return res.status(200).json({
+        preset: normalizedPayload,
+        source: 'supabase',
+      });
+    } catch (error) {
+      const safeMsg = getSafeErrorMessage(error, 'POST /api/research/preset/:presetKey');
+      return res.status(500).json({ error: safeMsg });
+    }
+  });
+
+  app.post('/api/research/preset/:presetKey/restore/:historyId', requireAuth, requirePresetAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    const presetKey = String(req.params.presetKey || '').trim();
+    if (!isResearchPresetKey(presetKey)) {
+      return res.status(404).json({ error: 'Unknown research preset key' });
+    }
+
+    const historyId = String(req.params.historyId || '').trim();
+    if (!historyId) {
+      return res.status(400).json({ error: 'Invalid history id' });
+    }
+
+    if (!isSupabaseConfigured) {
+      return res.status(503).json({ error: 'Supabase is not configured' });
+    }
+
+    try {
+      const { data: historyRow, error: historyError } = await supabase
+        .from('research_preset_audit')
+        .select('id,preset_key,payload')
+        .eq('preset_key', presetKey)
+        .eq('id', historyId)
+        .maybeSingle<{ id: string; preset_key: string; payload: unknown }>();
+
+      if (historyError) {
+        return res.status(500).json({ error: historyError.message });
+      }
+
+      if (!historyRow) {
+        return res.status(404).json({ error: 'History item not found' });
+      }
+
+      if (!isResolvedResearchPreset(historyRow.payload)) {
+        return res.status(422).json({ error: 'History payload shape is invalid' });
+      }
+
+      const normalizedPayload: ResolvedResearchPreset = {
+        ...historyRow.payload,
+        key: presetKey,
+      };
+
+      const { error: upsertError } = await supabase
+        .from('research_presets')
+        .upsert(
+          [
+            {
+              preset_key: presetKey,
+              payload: normalizedPayload,
+              updated_at: new Date().toISOString(),
+            },
+          ],
+          { onConflict: 'preset_key' },
+        );
+
+      if (upsertError) {
+        return res.status(500).json({ error: upsertError.message });
+      }
+
+      await appendResearchPresetAudit({
+        preset_key: presetKey,
+        actor_user_id: req.user.id,
+        actor_username: req.user.username,
+        source: 'restore',
+        payload: normalizedPayload,
+        metadata: {
+          action: 'restore',
+          restoredFromHistoryId: historyId,
+        },
+        created_at: new Date().toISOString(),
+      });
+
+      await appendServerBenchmarkEvent({
+        userId: req.user.id,
+        name: 'research_preset_restore',
+        path: `/api/research/preset/${presetKey}/restore/${historyId}`,
+        payload: {
+          presetKey,
+          restoredFrom: historyId,
+          actor: req.user.username,
+        },
+      });
+
+      return res.status(200).json({
+        preset: normalizedPayload,
+        source: 'supabase',
+        restoredFrom: historyId,
+      });
+    } catch (error) {
+      const safeMsg = getSafeErrorMessage(error, 'POST /api/research/preset/:presetKey/restore/:historyId');
+      return res.status(500).json({ error: safeMsg });
+    }
+  });
+
+  app.get('/api/research/preset/:presetKey/history', requireAuth, requirePresetAdmin, async (req: AuthenticatedRequest, res: Response) => {
+    const presetKey = String(req.params.presetKey || '').trim();
+    if (!isResearchPresetKey(presetKey)) {
+      return res.status(404).json({ error: 'Unknown research preset key' });
+    }
+
+    if (!isSupabaseConfigured) {
+      return res.status(503).json({ error: 'Supabase is not configured' });
+    }
+
+    const requestedLimit = Number(req.query.limit || 20);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.max(1, Math.min(100, Math.floor(requestedLimit)))
+      : 20;
+
+    try {
+      const { data, error } = await supabase
+        .from('research_preset_audit')
+        .select('id,preset_key,actor_user_id,actor_username,source,payload,metadata,created_at')
+        .eq('preset_key', presetKey)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+        .returns<ResearchPresetAuditSelectRow[]>();
+
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+
+      const rows = (data || []).map((row) => ({
+        id: row.id,
+        presetKey: row.preset_key,
+        actorUserId: row.actor_user_id,
+        actorUsername: row.actor_username,
+        source: row.source,
+        payload: row.payload,
+        metadata: row.metadata,
+        createdAt: row.created_at,
+      }));
+
+      return res.status(200).json({
+        presetKey,
+        rows,
+      });
+    } catch (error) {
+      const safeMsg = getSafeErrorMessage(error, 'GET /api/research/preset/:presetKey/history');
+      return res.status(500).json({ error: safeMsg });
+    }
+  });
   
   // Auth Routes
   app.get('/api/auth/url', (req, res) => {

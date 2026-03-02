@@ -15,6 +15,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
+    "seed:research-presets": "tsx scripts/seed-research-presets.ts",
     "check:tailwind-binding": "node -e \"require('@tailwindcss/oxide'); console.log('tailwind oxide binding ok')\""
   },
   "dependencies": {

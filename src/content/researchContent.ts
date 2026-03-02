@@ -1,3 +1,5 @@
+import { ROUTES } from '../config/routes';
+
 export const researchContent = {
   hero: {
     overline: 'RESEARCH IN-APP LINKED SURFACE',
@@ -76,4 +78,219 @@ export const researchContent = {
       { label: 'Risk-On Trigger', value: 'Liquidity Delta +18.6' },
     ],
   },
+  presets: {
+    embedded: {
+      page: {
+        mainClassName: 'section-wrap section-v-80 section-cluster dashboard-kpay-flow',
+      },
+      stepNav: {
+        ariaLabel: 'Research flow steps',
+        showLabels: false,
+        showSeparators: true,
+      },
+      core: {
+        feedsLabel: 'DATA FEEDS',
+        viewsLabel: 'VISUAL MODES',
+        libraryLabel: 'NAVER PREMIUM VIEW',
+      },
+      hero: {
+        layout: 'embedded',
+      },
+      charts: {
+        radar: {
+          title: 'Macro Risk Radar',
+          subtitle: '거시 리스크 레이어',
+        },
+        trend: {
+          title: 'Quant Signal Timeline',
+          subtitle: '신호 편차 추세',
+        },
+        premium: {
+          title: 'Naver Premium Published Content Deck',
+          subtitle: '발행 콘텐츠 열람 레이어',
+          lockLabel: 'VIEW ONLY · PUBLISHED BY OPERATOR',
+        },
+      },
+    },
+    studio: {
+      page: {
+        mainClassName: 'section-wrap section-v-80 section-cluster dashboard-kpay-flow dashboard-main-shell',
+      },
+      stepNav: {
+        ariaLabel: 'Research pipeline steps',
+        showLabels: true,
+        showSeparators: false,
+      },
+      core: {
+        feedsLabel: 'DATA FEEDS',
+        viewsLabel: 'VISUAL MODES',
+        libraryLabel: 'PUBLISHED LIBRARY',
+      },
+      hero: {
+        layout: 'studio',
+        ctas: [
+          {
+            label: 'Open In-App Workspace',
+            to: ROUTES.inApp,
+            variant: 'solid',
+            size: 'lg',
+            className: 'kpay-primary-cta muel-interact',
+          },
+          {
+            label: 'View Support Center',
+            to: ROUTES.support,
+            variant: 'outline',
+            size: 'md',
+            className: 'muel-interact',
+          },
+        ],
+        kpi: {
+          kicker: 'LIVE CONNECTOR SNAPSHOT',
+          listAriaLabel: 'Current connector states',
+          footnoteLabel: 'SOURCE OF TRUTH',
+          footnoteLinkLabel: 'Validate in Embedded App',
+          footnoteLinkTo: ROUTES.inApp,
+        },
+      },
+      charts: {
+        radar: {
+          title: 'Studio Macro Risk Radar',
+          subtitle: '운영 리서치 기준 레이어',
+        },
+        trend: {
+          title: 'Studio Quant Signal Timeline',
+          subtitle: '운영 편집용 신호 추세',
+        },
+        premium: {
+          title: 'Published Content Review Deck',
+          subtitle: '발행본 검수/열람 기준 레이어',
+          lockLabel: 'REFERENCE VIEW · OPERATOR CONTROLLED',
+        },
+      },
+      data: {
+        connectors: [
+          {
+            id: 'macro-api',
+            title: '거시 경제 API',
+            status: 'CONNECTED',
+            description: '핵심 거시 시계열 정합성 검증 완료 상태를 유지합니다.',
+          },
+          {
+            id: 'quant-api',
+            title: '퀀트 신호 API',
+            status: 'MONITORING',
+            description: '운영 대시보드 기준 임계치 및 이상치 모니터링이 활성화되어 있습니다.',
+          },
+          {
+            id: 'publish-api',
+            title: '네이버 프리미엄 연동',
+            status: 'EDITORIAL READY',
+            description: '발행 메타데이터 검수 플로우와 동기화되어 편집 준비 상태입니다.',
+          },
+        ],
+        workbench: {
+          feeds: ['FRED / 한국은행 ECOS (검증)', 'Yahoo / Polygon / 내부 팩터 (운영)', 'Discord 인앱 컨텍스트 (세션)'],
+          views: ['운영 비교 차트', '리스크 레이더 운영뷰', '이벤트 타임라인 검수뷰'],
+          library: ['발행본 검수 피드', '카테고리/태그 교정 로그', '출시 전 체크리스트'],
+        },
+        radar: {
+          metrics: [
+            { label: 'Liquidity', value: 76 },
+            { label: 'Volatility', value: 41 },
+            { label: 'Momentum', value: 69 },
+            { label: 'Risk Spread', value: 49 },
+            { label: 'Sentiment', value: 63 },
+            { label: 'Stability', value: 73 },
+          ],
+        },
+        trend: {
+          labels: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7', 'W8'],
+          values: [62, 63, 67, 65, 72, 75, 73, 79],
+        },
+        premium: {
+          rows: [
+            { label: 'Editorial Queue', value: '4 Scheduled / 1 Draft' },
+            { label: 'Macro Revision Note', value: 'CPI Delta +0.18pt' },
+            { label: 'Signal Confidence', value: 'Tier-A 68% / Tier-B 24%' },
+            { label: 'Publish Readiness', value: 'Final QA 92%' },
+          ],
+        },
+      },
+    },
+  },
 } as const;
+
+export type ResearchPresetKey = keyof typeof researchContent.presets;
+
+export const isResearchPresetKey = (value: string): value is ResearchPresetKey => {
+  return value in researchContent.presets;
+};
+
+export const getResolvedResearchPreset = (presetKey: ResearchPresetKey) => {
+  const preset = researchContent.presets[presetKey];
+  const presetData = 'data' in preset ? preset.data : undefined;
+
+  return {
+    key: presetKey,
+    page: {
+      mainClassName: preset.page.mainClassName,
+    },
+    stepNav: {
+      ariaLabel: preset.stepNav.ariaLabel,
+      showLabels: preset.stepNav.showLabels,
+      showSeparators: preset.stepNav.showSeparators,
+    },
+    core: {
+      feedsLabel: preset.core.feedsLabel,
+      viewsLabel: preset.core.viewsLabel,
+      libraryLabel: preset.core.libraryLabel,
+    },
+    hero: {
+      layout: preset.hero.layout,
+      overline: researchContent.hero.overline,
+      title: researchContent.hero.title,
+      description: researchContent.hero.description,
+      studio: preset.hero.layout === 'studio'
+        ? {
+            ctas: preset.hero.ctas,
+            kpi: preset.hero.kpi,
+          }
+        : undefined,
+    },
+    charts: {
+      radar: {
+        title: preset.charts?.radar?.title ?? researchContent.radar.title,
+        subtitle: preset.charts?.radar?.subtitle ?? researchContent.radar.subtitle,
+      },
+      trend: {
+        title: preset.charts?.trend?.title ?? researchContent.trend.title,
+        subtitle: preset.charts?.trend?.subtitle ?? researchContent.trend.subtitle,
+      },
+      premium: {
+        title: preset.charts?.premium?.title ?? researchContent.premium.title,
+        subtitle: preset.charts?.premium?.subtitle ?? researchContent.premium.subtitle,
+        lockLabel: preset.charts?.premium?.lockLabel ?? researchContent.premium.lockLabel,
+      },
+    },
+    data: {
+      connectors: presetData?.connectors ?? researchContent.connectors,
+      workbench: {
+        feeds: presetData?.workbench?.feeds ?? researchContent.workbench.feeds,
+        views: presetData?.workbench?.views ?? researchContent.workbench.views,
+        library: presetData?.workbench?.library ?? researchContent.workbench.library,
+      },
+      radar: {
+        metrics: presetData?.radar?.metrics ?? researchContent.radar.metrics,
+      },
+      trend: {
+        labels: presetData?.trend?.labels ?? researchContent.trend.labels,
+        values: presetData?.trend?.values ?? researchContent.trend.values,
+      },
+      premium: {
+        rows: presetData?.premium?.rows ?? researchContent.premium.rows,
+      },
+    },
+  };
+};
+
+export type ResolvedResearchPreset = ReturnType<typeof getResolvedResearchPreset>;

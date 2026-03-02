@@ -11,6 +11,7 @@ import { AppHeader } from '../components/ui/AppHeader';
 import { MuelReveal } from '../components/ui/MuelReveal';
 import { UiButton } from '../components/ui/UiButton';
 import { useMuelMotion } from '../hooks/useMuelMotion';
+import { getMuelMotionCssVars } from '../lib/getMuelMotionCssVars';
 
 interface DashboardProps {
   user?: { id: string; username: string; avatar?: string | null } | null;
@@ -84,39 +85,7 @@ export const Dashboard = ({ user: _user, onLogout: _onLogout, content = dashboar
     margin: '-64px 0px 0px 0px',
   });
 
-  const motionCssVars = {
-    '--muel-ease': `${tokens.uiEase}`,
-    '--muel-reveal-duration': `${tokens.revealDurationMs}ms`,
-    '--muel-reveal-offset': `${tokens.revealOffsetPx}px`,
-    '--muel-hover-lift': `${tokens.hoverLiftPx}px`,
-    '--muel-hover-scale': `${tokens.hoverScale}`,
-    '--muel-active-scale': `${tokens.activeScale}`,
-    '--muel-hover-duration': `${tokens.hoverDurationMs}ms`,
-    '--muel-card-duration': `${tokens.cardTransitionMs}ms`,
-    '--muel-link-duration': `${tokens.linkTransitionMs}ms`,
-    '--muel-menu-duration': `${tokens.menuTransitionMs}ms`,
-    '--muel-underline-duration': `${tokens.underlineTransitionMs}ms`,
-    '--muel-micro-underline-duration': `${tokens.microUnderlineTransitionMs}ms`,
-    '--muel-media-zoom-duration': `${tokens.mediaZoomDurationMs}ms`,
-    '--muel-skip-duration': `${tokens.skipLinkTransitionMs}ms`,
-    '--muel-glitch-a-duration': `${tokens.glitchDurationAMs}ms`,
-    '--muel-glitch-b-duration': `${tokens.glitchDurationBMs}ms`,
-    '--muel-dock-duration': `${tokens.dockEnterDurationMs}ms`,
-    '--muel-visual-card-shadow-y-rest': `${tokens.visualCardShadowYRestPx}px`,
-    '--muel-visual-card-shadow-blur-rest': `${tokens.visualCardShadowBlurRestPx}px`,
-    '--muel-visual-card-shadow-y-hover': `${tokens.visualCardShadowYHoverPx}px`,
-    '--muel-visual-card-shadow-blur-hover': `${tokens.visualCardShadowBlurHoverPx}px`,
-    '--muel-visual-card-shadow-tint-rest': `${tokens.visualCardShadowTintRestPct}%`,
-    '--muel-visual-card-shadow-tint-hover': `${tokens.visualCardShadowTintHoverPct}%`,
-    '--muel-visual-card-overlay-accent': `${tokens.visualCardOverlayAccentPct}%`,
-    '--muel-visual-card-overlay-opacity-rest': `${tokens.visualCardOverlayOpacityRest}`,
-    '--muel-visual-card-overlay-opacity-hover': `${tokens.visualCardOverlayOpacityHover}`,
-    '--muel-visual-chart-inset-accent': `${tokens.visualChartInsetAccentPct}%`,
-    '--muel-visual-radar-pulse-duration': `${tokens.visualRadarCorePulseDurationMs}ms`,
-    '--muel-visual-radar-pulse-min-opacity': `${tokens.visualRadarCorePulseMinOpacity}`,
-    '--muel-visual-radar-pulse-max-opacity': `${tokens.visualRadarCorePulseMaxOpacity}`,
-    '--muel-visual-radar-pulse-scale': `${tokens.visualRadarCorePulseScale}`,
-  } as CSSProperties;
+  const motionCssVars = getMuelMotionCssVars(tokens) as CSSProperties;
 
   const inviteButton = (
     <UiButton
@@ -251,7 +220,7 @@ export const Dashboard = ({ user: _user, onLogout: _onLogout, content = dashboar
                 key={feature.id}
                 className="feature-reboot-card muel-interact"
                 delayMultiplier={index}
-                kind="feature"
+                motionKind="feature"
               >
                 <p className="feature-reboot-kicker">{feature.token}</p>
                 <h3 className="feature-reboot-title">{feature.title}</h3>

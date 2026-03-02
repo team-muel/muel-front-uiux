@@ -19,17 +19,18 @@ const TAG_COMPONENTS = {
 type MuelRevealProps = HTMLMotionProps<'div'> & {
   as?: RevealTag;
   delayMultiplier?: number;
-  kind?: MotionKind;
+  motionKind?: MotionKind;
 };
 
 export const MuelReveal: React.FC<MuelRevealProps> = ({
   as = 'div',
   delayMultiplier = 0,
-  kind = 'component',
+  motionKind = 'component',
   ...rest
 }) => {
   const { getRevealProps } = useMuelMotion();
   const Component = TAG_COMPONENTS[as];
+  const resolvedMotionKind: MotionKind = motionKind === 'feature' ? 'feature' : 'component';
 
-  return <Component {...getRevealProps(delayMultiplier, kind)} {...rest} />;
+  return <Component {...getRevealProps(delayMultiplier, resolvedMotionKind)} {...rest} />;
 };
