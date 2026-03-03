@@ -4,6 +4,7 @@ import type { AuthenticatedRequest } from '../types';
 import type { BenchmarkPayload } from '../backend/benchmark/types';
 import { getSafeErrorMessage } from '../utils';
 import { supabase } from '../backend/supabase';
+import { isPresetAdmin } from '../backend/isPresetAdmin';
 
 type ResearchPresetUpsertRequestBody = {
   preset?: unknown;
@@ -66,6 +67,14 @@ export const createResearchRouter = ({
 }: ResearchRoutesDeps) => {
   const router = Router();
 
+  const requirePresetAdminAsync: RequestHandler = async (req, res, next) => {
+    const userId = (req as AuthenticatedRequest).user?.id;
+    if (!userId || !(await isPresetAdmin(userId))) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    next();
+  };
+
   router.get('/api/research/preset/:presetKey', async (req: Request, res: Response) => {
     const presetKey = String(req.params.presetKey || '').trim();
     if (!isResearchPresetKey(presetKey)) {
@@ -81,7 +90,7 @@ export const createResearchRouter = ({
     });
   });
 
-  router.post('/api/research/preset/:presetKey', requireAuthAndCsrf, requirePresetAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  router.post('/api/research/preset/:presetKey', requireAuthAndCsrf, requirePresetAdminAsync, async (req: AuthenticatedRequest, res: Response) => {
     const presetKey = String(req.params.presetKey || '').trim();
     if (!isResearchPresetKey(presetKey)) {
       return res.status(404).json({ error: 'Unknown research preset key' });
@@ -152,7 +161,7 @@ export const createResearchRouter = ({
     }
   });
 
-  router.post('/api/research/preset/:presetKey/restore/:historyId', requireAuthAndCsrf, requirePresetAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  router.post('/api/research/preset/:presetKey/restore/:historyId', requireAuthAndCsrf, requirePresetAdminAsync, async (req: AuthenticatedRequest, res: Response) => {
     const presetKey = String(req.params.presetKey || '').trim();
     if (!isResearchPresetKey(presetKey)) {
       return res.status(404).json({ error: 'Unknown research preset key' });
@@ -244,7 +253,7 @@ export const createResearchRouter = ({
     }
   });
 
-  router.get('/api/research/preset/:presetKey/history', requireAuth, requirePresetAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  router.get('/api/research/preset/:presetKey/history', requireAuth, requirePresetAdminAsync, async (req: AuthenticatedRequest, res: Response) => {
     const presetKey = String(req.params.presetKey || '').trim();
     if (!isResearchPresetKey(presetKey)) {
       return res.status(404).json({ error: 'Unknown research preset key' });

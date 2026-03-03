@@ -1,6 +1,7 @@
 import { Router, Response, type RequestHandler } from 'express';
 import type { AuthenticatedRequest } from '../types';
 import type { BenchmarkPayload } from '../backend/benchmark/types';
+import { isPresetAdmin } from '../backend/isPresetAdmin';
 import type { BotOperationalStatus, BotRuntimeStatus, BotStatusGrade } from '../types/botStatus';
 
 type BotReconnectRequestBody = {
@@ -56,7 +57,15 @@ export const createBotRouter = ({
 }: BotRoutesDeps) => {
   const router = Router();
 
-  router.get('/api/bot/status', requireAuth, requirePresetAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const requirePresetAdminAsync: RequestHandler = async (req, res, next) => {
+    const userId = (req as AuthenticatedRequest).user?.id;
+    if (!userId || !(await isPresetAdmin(userId))) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    next();
+  };
+
+  router.get('/api/bot/status', requireAuth, requirePresetAdminAsync, async (req: AuthenticatedRequest, res: Response) => {
     const bot = getBotRuntimeStatus();
     const operational = evaluateBotRuntimeStatus(bot);
     const nextCheckInSec = getBotNextCheckInSec(operational.grade);
@@ -96,7 +105,7 @@ export const createBotRouter = ({
     });
   });
 
-  router.post('/api/bot/reconnect', requireAuthAndCsrf, requirePresetAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  router.post('/api/bot/reconnect', requireAuthAndCsrf, requirePresetAdminAsync, async (req: AuthenticatedRequest, res: Response) => {
     const body = (req.body || {}) as BotReconnectRequestBody;
     const reason = String(body.reason || defaultReconnectReason).trim().slice(0, reconnectReasonMaxLength) || defaultReconnectReason;
     const result = await forceBotReconnect(`api:${reason}`);
