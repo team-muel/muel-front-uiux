@@ -228,5 +228,63 @@ export const createAuthRouter = ({
     return res.json({ success: true });
   });
 
+  // SDK flow: receive auth code from Embedded App SDK and exchange on server-side
+  router.post('/api/auth/sdk', async (req: Request, res: Response) => {
+    const body = req.body as { code?: string };
+    const code = String(body?.code || '').trim();
+    if (!code) return res.status(400).json({ error: 'code is required' });
+
+    try {
+      const tokenResponse = await fetch(discordOauthTokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: process.env.DISCORD_CLIENT_ID || '',
+          client_secret: process.env.DISCORD_CLIENT_SECRET || '',
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: process.env.APP_BASE_URL || '',
+        }),
+      });
+
+      const tokenData = (await tokenResponse.json()) as DiscordTokenResponse;
+      if (!tokenData.access_token) {
+        return res.status(400).json({ error: 'Failed to exchange token' });
+      }
+
+      const userResponse = await fetch(discordApiMeUrl, {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+      const userData = (await userResponse.json()) as DiscordUserResponse;
+
+      if (isSupabaseConfigured) {
+        await supabase.from('users').upsert({
+          id: userData.id,
+          username: userData.username,
+          avatar: userData.avatar,
+          updated_at: new Date().toISOString(),
+        });
+      }
+
+      const tokenExpiresAt = Math.floor(Date.now() / 1000) + (tokenData.expires_in || defaultDiscordTokenExpiresInSec);
+
+      const jwtPayload: JwtUser = {
+        id: userData.id,
+        username: userData.username,
+        avatar: userData.avatar,
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        tokenExpiresAt,
+      };
+
+      issueAuthCookie(res, jwtPayload);
+
+      return res.json({ success: true });
+    } catch (error: unknown) {
+      console.error('SDK OAuth error:', error);
+      return res.status(500).json({ error: 'Authentication failed' });
+    }
+  });
+
   return router;
 };
