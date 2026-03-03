@@ -303,12 +303,6 @@ export const getBotNextCheckInSec = (grade: BotOperationalStatus['grade']) => {
 
 type AuditSource = 'upsert' | 'restore';
 
-const presetAdminUserIds = new Set(
-  (process.env.RESEARCH_PRESET_ADMIN_USER_IDS || '')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean),
-);
 
 const studioBaseUrlRaw =
   process.env.RESEARCH_STUDIO_URL ||
@@ -958,7 +952,7 @@ const handleBotStatusRefreshButton = async (interaction: ButtonInteraction) => {
     return;
   }
 
-  if (!isSupabaseConfigured || !presetAdminUserIds.size) {
+  if (!isSupabaseConfigured) {
     await appendPresetBenchmarkEventSafe({
       userId: interaction.user.id,
       name: 'research_bot_status_discord_button',
@@ -1187,7 +1181,7 @@ const handlePresetRestoreButton = async (interaction: ButtonInteraction) => {
     return;
   }
 
-  if (!isSupabaseConfigured || !presetAdminUserIds.size) {
+  if (!isSupabaseConfigured) {
     await interaction.reply({
       content: '운영 설정이 준비되지 않아 버튼 복원을 실행할 수 없습니다.',
       ephemeral: true,
@@ -1246,7 +1240,7 @@ const handlePresetHistoryPageButton = async (interaction: ButtonInteraction) => 
     return;
   }
 
-  if (!isSupabaseConfigured || !presetAdminUserIds.size) {
+  if (!isSupabaseConfigured) {
     await interaction.reply({
       content: '운영 설정이 준비되지 않아 이력 페이지 이동을 실행할 수 없습니다.',
       ephemeral: true,
