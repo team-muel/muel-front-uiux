@@ -7,7 +7,7 @@ import { createBotRouter } from './src/routes/bot';
 import { createResearchRouter } from './src/routes/research';
 import { createAppRouter } from './src/routes/app';
 import { detectRuntimeEnvironment, getCookieSecurity } from './src/backend/runtimeEnvironment';
-import { supabase, isSupabaseConfigured } from './src/supabase';
+// import { supabase, isSupabaseConfigured } from './src/supabase';
 import { client, startBot, createForumThread, logEvent, getBotRuntimeStatus, evaluateBotRuntimeStatus, getBotNextCheckInSec, forceBotReconnect } from './src/bot';
 import { scrapeYouTubePost } from './src/scraper';
 import { getResolvedResearchPreset, isResearchPresetKey } from './src/content/researchContent';

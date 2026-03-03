@@ -1,6 +1,6 @@
 import { randomBytes, timingSafeEqual } from 'crypto';
 import { Router, Request, Response, type RequestHandler } from 'express';
-import { supabase } from '../supabase';
+import { supabase } from '../backend/supabase';
 import type { AuthenticatedRequest, JwtUser } from '../types';
 import { getCookieSecurity, type RuntimeEnvironment } from '../backend/runtimeEnvironment';
 

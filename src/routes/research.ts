@@ -3,7 +3,7 @@ import type { ResolvedResearchPreset, ResearchPresetKey } from '../content/resea
 import type { AuthenticatedRequest } from '../types';
 import type { BenchmarkPayload } from '../backend/benchmark/types';
 import { getSafeErrorMessage } from '../utils';
-import { supabase } from '../supabase';
+import { supabase } from '../backend/supabase';
 
 type ResearchPresetUpsertRequestBody = {
   preset?: unknown;

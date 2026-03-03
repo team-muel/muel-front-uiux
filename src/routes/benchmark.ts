@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 import { Router, Response, type RequestHandler } from 'express';
-import { supabase } from '../supabase';
+import { supabase } from '../backend/supabase';
 import type { AuthenticatedRequest } from '../types';
 import { getSafeErrorMessage } from '../utils';
 import type { BenchmarkEventRow, BenchmarkPayload } from '../backend/benchmark/types';

@@ -1,6 +1,6 @@
 import { Router, Response, type RequestHandler } from 'express';
 import { ChannelType, type Client } from 'discord.js';
-import { supabase } from '../supabase';
+import { supabase } from '../backend/supabase';
 import type { AuthenticatedRequest, SettingsRow } from '../types';
 import { getSafeErrorMessage, MAX_LOGS_DISPLAY } from '../utils';
 
