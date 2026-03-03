@@ -320,9 +320,7 @@ const presetMutationCooldownMs = Number(process.env.RESEARCH_PRESET_MUTATION_COO
 const studioBaseUrl = studioBaseUrlRaw.trim().replace(/\/+$/, '');
 const presetMutationLocks = new Map<string, number>();
 
-const isPresetAdmin = (userId: string) => {
-  return presetAdminUserIds.size > 0 && presetAdminUserIds.has(userId);
-};
+import { isPresetAdmin } from './backend/isPresetAdmin';
 
 const buildStudioPresetLink = (presetKey: string, historyId?: string) => {
   if (!studioBaseUrl) {
@@ -771,15 +769,7 @@ const ensurePresetAdminInteraction = async (interaction: ChatInputCommandInterac
     return false;
   }
 
-  if (!presetAdminUserIds.size) {
-    await interaction.reply({
-      content: 'RESEARCH_PRESET_ADMIN_USER_IDS allowlist가 설정되지 않았습니다.',
-      ephemeral: true,
-    });
-    return false;
-  }
-
-  if (!isPresetAdmin(interaction.user.id)) {
+  if (!(await isPresetAdmin(interaction.user.id))) {
     await interaction.reply({
       content: '관리자 권한이 없어 이 명령을 실행할 수 없습니다.',
       ephemeral: true,
@@ -1019,7 +1009,7 @@ const handleBotStatusRefreshButton = async (interaction: ButtonInteraction) => {
     return;
   }
 
-  if (!isPresetAdmin(interaction.user.id)) {
+  if (!(await isPresetAdmin(interaction.user.id))) {
     await appendPresetBenchmarkEventSafe({
       userId: interaction.user.id,
       name: 'research_bot_status_discord_button',
@@ -1218,7 +1208,7 @@ const handlePresetRestoreButton = async (interaction: ButtonInteraction) => {
     return;
   }
 
-  if (!isPresetAdmin(interaction.user.id)) {
+  if (!(await isPresetAdmin(interaction.user.id))) {
     await interaction.reply({
       content: '관리자 권한이 없어 이 버튼을 실행할 수 없습니다.',
       ephemeral: true,
@@ -1277,7 +1267,7 @@ const handlePresetHistoryPageButton = async (interaction: ButtonInteraction) => 
     return;
   }
 
-  if (!isPresetAdmin(interaction.user.id)) {
+  if (!(await isPresetAdmin(interaction.user.id))) {
     await interaction.reply({
       content: '관리자 권한이 없어 이 버튼을 실행할 수 없습니다.',
       ephemeral: true,
