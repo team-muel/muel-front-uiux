@@ -28,15 +28,6 @@ const manualReconnectCooldownMs = Number(process.env.DISCORD_MANUAL_RECONNECT_CO
 const interactionTtlMs = Number(process.env.DISCORD_INTERACTION_TTL_MS || 300000);
 const botAlertWebhookUrl = (process.env.DISCORD_BOT_ALERT_WEBHOOK_URL || '').trim();
 const botAlertCooldownMs = Number(process.env.DISCORD_BOT_ALERT_COOLDOWN_MS || 300000);
-const minimalCommandMode = (process.env.DISCORD_MINIMAL_COMMAND_MODE || 'true').trim().toLowerCase() !== 'false';
-const websiteCommandName = (process.env.DISCORD_WEBSITE_COMMAND_NAME || 'site-link').trim() || 'site-link';
-const websiteUrl = (
-  process.env.DISCORD_WEBSITE_URL ||
-  process.env.APP_BASE_URL ||
-  process.env.RESEARCH_STUDIO_URL ||
-  ''
-).trim();
-const websiteWebhookUrl = (process.env.DISCORD_WEBSITE_WEBHOOK_URL || '').trim();
 
 setDefaultResultOrder('ipv4first');
 console.log('[RENDER_EVENT] DNS_RESULT_ORDER value=ipv4first scope=src_bot');
@@ -566,10 +557,6 @@ const buildBotStatusReplyPayload = (runtime: ReturnType<typeof getBotRuntimeStat
   };
 };
 
-const shareWebsiteCommandSpec = new SlashCommandBuilder()
-  .setName(websiteCommandName)
-  .setDescription('등록된 웹사이트 링크를 채널에 공유합니다.');
-
 const presetCommandSpecs = [
   new SlashCommandBuilder()
     .setName('bot-status')
@@ -675,17 +662,12 @@ const presetCommandSpecs = [
     ),
 ];
 
-const registerBotCommands = async () => {
+const registerPresetCommands = async () => {
   if (!client.application) {
     return;
   }
 
-  // 기본값은 단일 명령어 모드(true)로 두어 레거시 명령 노출을 최소화합니다.
-  const commandSpecs = minimalCommandMode
-    ? [shareWebsiteCommandSpec]
-    : [shareWebsiteCommandSpec, ...presetCommandSpecs];
-
-  const payload = commandSpecs.map((command) => command.toJSON());
+  const payload = presetCommandSpecs.map((command) => command.toJSON());
   const guildId = (process.env.DISCORD_COMMAND_GUILD_ID || '').trim();
 
   if (guildId) {
@@ -696,56 +678,6 @@ const registerBotCommands = async () => {
 
   await client.application.commands.set(payload);
   console.log(`[RENDER_EVENT] BOT_COMMANDS_REGISTERED scope=global count=${payload.length}`);
-};
-
-const sendWebsiteLinkByWebhook = async (triggeredBy: string) => {
-  if (!websiteWebhookUrl || !websiteUrl) {
-    return false;
-  }
-
-  await fetch(websiteWebhookUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      content: `🔗 ${websiteUrl}`,
-      username: 'Muel Link Bot',
-    }),
-  });
-
-  await logEvent(`Shared website link via webhook by ${triggeredBy}`, 'success', triggeredBy);
-  return true;
-};
-
-const handleShareWebsiteCommand = async (interaction: ChatInputCommandInteraction) => {
-  if (!websiteUrl) {
-    await interaction.reply({
-      content: 'DISCORD_WEBSITE_URL (또는 APP_BASE_URL)이 설정되지 않았습니다.',
-      ephemeral: true,
-    });
-    return;
-  }
-
-  try {
-    const postedByWebhook = await sendWebsiteLinkByWebhook(interaction.user.id);
-    if (postedByWebhook) {
-      await interaction.reply({
-        content: `요청을 받았고 웹훅으로 링크를 전송했습니다: ${websiteUrl}`,
-        ephemeral: true,
-      });
-      return;
-    }
-
-    // 웹훅 미설정 시에는 명령 응답으로 바로 링크를 공유합니다.
-    await interaction.reply({ content: `🔗 ${websiteUrl}` });
-  } catch (error) {
-    console.error('[Discord Bot] Failed to share website link:', error);
-    await interaction.reply({
-      content: '링크 공유 중 오류가 발생했습니다.',
-      ephemeral: true,
-    }).catch(() => undefined);
-  }
 };
 
 const appendPresetAudit = async (params: {
@@ -1589,19 +1521,6 @@ const handlePresetUpsertFromHistoryCommand = async (interaction: ChatInputComman
 client.on('interactionCreate', async (interaction: Interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
-      if (interaction.commandName === websiteCommandName) {
-        await handleShareWebsiteCommand(interaction);
-        return;
-      }
-
-      if (minimalCommandMode) {
-        await interaction.reply({
-          content: '현재 봇은 단일 링크 공유 명령만 활성화되어 있습니다.',
-          ephemeral: true,
-        });
-        return;
-      }
-
       if (interaction.commandName === 'bot-status') {
         await handleBotStatusCommand(interaction);
         return;
@@ -1686,7 +1605,7 @@ client.on('clientReady', () => {
   console.log(`✅ [SUCCESS] Logged in as ${client.user?.tag}`);
   logEvent('Bot started successfully', 'info');
 
-  void registerBotCommands().catch((error) => {
+  void registerPresetCommands().catch((error) => {
     console.error('[Discord Bot] Failed to register slash commands:', error);
     logEvent(`Slash command register failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
   });

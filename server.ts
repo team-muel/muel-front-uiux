@@ -11,7 +11,6 @@ import { scrapeYouTubePost } from './src/scraper';
 import { getResolvedResearchPreset, isResearchPresetKey, type ResearchPresetKey, type ResolvedResearchPreset } from './src/content/researchContent';
 import { isResolvedResearchPreset } from './src/lib/researchPresetValidation';
 import { getReconnectFailureReason, toReconnectResult } from './src/lib/reconnectTelemetry';
-import { type ReconnectReason, type ReconnectResult, type ReconnectSource } from './src/types/reconnectTelemetry';
 import { ChannelType } from 'discord.js';
 import { JwtUser, Source, SettingsRow, AuthenticatedRequest } from './src/types';
 import { imageUrlToBase64, truncateText, MAX_SOURCES_PER_GUILD, DEFAULT_PAGE_LIMIT, MAX_LOGS_DISPLAY, getSafeErrorMessage, validateYouTubeUrl } from './src/utils';
@@ -58,30 +57,9 @@ type ReconnectSummary = {
   success: number;
   failed: number;
   rejected: number;
-  recent30m: {
-    total: number;
-    success: number;
-    failed: number;
-    rejected: number;
-    successRate: number;
-  };
   bySource: Array<{ source: string; count: number }>;
   byReason: Array<{ reason: string; count: number }>;
   lastResultAt: string | null;
-};
-
-type BotReconnectApiCacheItem = {
-  createdAtMs: number;
-  statusCode: number;
-  body: {
-    ok: boolean;
-    message: string;
-    statusGrade: string;
-    statusSummary: string;
-    recommendations: string[];
-    bot: ReturnType<typeof getBotRuntimeStatus>;
-    actor: string;
-  };
 };
 
 type ResearchPresetSupabaseRow = {
@@ -112,11 +90,7 @@ type ResearchPresetAuditSelectRow = {
 const benchmarkMemoryStore = new Map<string, BenchmarkEventRow[]>();
 const BENCHMARK_MEMORY_LIMIT = 2000;
 const BOT_STATUS_VIEW_BENCHMARK_INTERVAL_MS = Number(process.env.BOT_STATUS_VIEW_BENCHMARK_INTERVAL_MS || 60000);
-const BOT_RECONNECT_API_COOLDOWN_MS = Number(process.env.BOT_RECONNECT_API_COOLDOWN_MS || 10000);
-const BOT_RECONNECT_IDEMPOTENCY_TTL_MS = Number(process.env.BOT_RECONNECT_IDEMPOTENCY_TTL_MS || 30000);
 const botStatusViewBenchmarkLastAt = new Map<string, number>();
-const botReconnectApiLastAt = new Map<string, number>();
-const botReconnectApiIdempotencyCache = new Map<string, BotReconnectApiCacheItem>();
 
 const appendBenchmarkMemoryEvents = (userId: string, events: BenchmarkEventRow[]) => {
   const previous = benchmarkMemoryStore.get(userId) || [];
@@ -170,27 +144,18 @@ const appendServerBenchmarkEvent = async ({
 const summarizeBenchmarkEvents = (events: BenchmarkEventRow[]) => {
   const reconnectSourceCounts: Record<string, number> = {};
   const reconnectReasonCounts: Record<string, number> = {};
-  const nowMs = Date.now();
-  const recentWindowStartMs = nowMs - 30 * 60 * 1000;
   const reconnectSummary: ReconnectSummary = {
     attempts: 0,
     total: 0,
     success: 0,
     failed: 0,
     rejected: 0,
-    recent30m: {
-      total: 0,
-      success: 0,
-      failed: 0,
-      rejected: 0,
-      successRate: 0,
-    },
     bySource: [],
     byReason: [],
     lastResultAt: null,
   };
 
-  const registerReconnectResult = (result: ReconnectResult, source: ReconnectSource, reason: ReconnectReason, ts: string) => {
+  const registerReconnectResult = (result: string, source: string, reason: string, ts: string) => {
     reconnectSummary.total += 1;
     if (result === 'success') reconnectSummary.success += 1;
     else if (result === 'failed') reconnectSummary.failed += 1;
@@ -199,14 +164,6 @@ const summarizeBenchmarkEvents = (events: BenchmarkEventRow[]) => {
     reconnectSourceCounts[source] = (reconnectSourceCounts[source] || 0) + 1;
     reconnectReasonCounts[reason] = (reconnectReasonCounts[reason] || 0) + 1;
     reconnectSummary.lastResultAt = ts;
-
-    const tsMs = Date.parse(ts);
-    if (Number.isFinite(tsMs) && tsMs >= recentWindowStartMs) {
-      reconnectSummary.recent30m.total += 1;
-      if (result === 'success') reconnectSummary.recent30m.success += 1;
-      else if (result === 'failed') reconnectSummary.recent30m.failed += 1;
-      else if (result === 'rejected') reconnectSummary.recent30m.rejected += 1;
-    }
   };
 
   events.forEach((event) => {
@@ -223,16 +180,15 @@ const summarizeBenchmarkEvents = (events: BenchmarkEventRow[]) => {
 
     if (event.name === 'bot_reconnect_ui_failed') {
       const statusValue = String(event.payload?.status || 'UNKNOWN').toUpperCase();
-      const mappedReason: ReconnectReason = statusValue === 'NETWORK' ? 'NETWORK' : 'UNKNOWN';
-      registerReconnectResult('failed', 'ui', mappedReason, event.ts);
+      registerReconnectResult('failed', 'ui', statusValue, event.ts);
       return;
     }
 
     if (event.name === 'bot_reconnect_api' || event.name === 'research_bot_reconnect_discord') {
       const resultRaw = String(event.payload?.result || 'unknown').toLowerCase();
-      const result = (resultRaw === 'success' || resultRaw === 'failed' || resultRaw === 'rejected' ? resultRaw : 'failed') as ReconnectResult;
-      const source = String(event.payload?.source || (event.name === 'bot_reconnect_api' ? 'api' : 'slash')).toLowerCase() as ReconnectSource;
-      const reason = String(event.payload?.reason || 'UNKNOWN').toUpperCase() as ReconnectReason;
+      const result = resultRaw === 'success' || resultRaw === 'failed' || resultRaw === 'rejected' ? resultRaw : 'failed';
+      const source = String(event.payload?.source || (event.name === 'bot_reconnect_api' ? 'api' : 'slash')).toLowerCase();
+      const reason = String(event.payload?.reason || 'UNKNOWN').toUpperCase();
       registerReconnectResult(result, source, reason, event.ts);
       return;
     }
@@ -247,10 +203,6 @@ const summarizeBenchmarkEvents = (events: BenchmarkEventRow[]) => {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 6)
     .map(([reason, count]) => ({ reason, count }));
-
-  reconnectSummary.recent30m.successRate = reconnectSummary.recent30m.total
-    ? Math.round((reconnectSummary.recent30m.success / reconnectSummary.recent30m.total) * 100)
-    : 0;
 
   const eventCounts = events.reduce<Record<string, number>>((acc, event) => {
     acc[event.name] = (acc[event.name] || 0) + 1;
@@ -567,63 +519,6 @@ async function startServer() {
   });
 
   app.post('/api/bot/reconnect', requireAuth, requirePresetAdmin, async (req: AuthenticatedRequest, res: Response) => {
-    const nowMs = Date.now();
-    const idempotencyKeyRaw = String(req.body?.idempotencyKey || '').trim();
-    const idempotencyKey = idempotencyKeyRaw ? idempotencyKeyRaw.slice(0, 80) : '';
-    const cacheKey = idempotencyKey ? `${req.user.id}:${idempotencyKey}` : '';
-
-    if (cacheKey) {
-      const cached = botReconnectApiIdempotencyCache.get(cacheKey);
-      if (cached && nowMs - cached.createdAtMs <= Math.max(5000, BOT_RECONNECT_IDEMPOTENCY_TTL_MS)) {
-        return res.status(cached.statusCode).json({
-          ...cached.body,
-          idempotentReplay: true,
-        });
-      }
-
-      for (const [key, item] of botReconnectApiIdempotencyCache.entries()) {
-        if (nowMs - item.createdAtMs > Math.max(5000, BOT_RECONNECT_IDEMPOTENCY_TTL_MS)) {
-          botReconnectApiIdempotencyCache.delete(key);
-        }
-      }
-    }
-
-    const previousAt = botReconnectApiLastAt.get(req.user.id) || 0;
-    const cooldownMs = Math.max(1000, BOT_RECONNECT_API_COOLDOWN_MS);
-    if (nowMs - previousAt < cooldownMs) {
-      const remainSec = Math.ceil((cooldownMs - (nowMs - previousAt)) / 1000);
-      const runtime = getBotRuntimeStatus();
-      const operational = evaluateBotRuntimeStatus(runtime);
-      const rejectedMessage = `재연결 API 쿨다운이 ${remainSec}초 남아 있습니다.`;
-
-      await appendServerBenchmarkEvent({
-        userId: req.user.id,
-        name: 'bot_reconnect_api',
-        path: '/api/bot/reconnect',
-        payload: {
-          ok: false,
-          result: 'rejected' as ReconnectResult,
-          reason: 'COOLDOWN_API' as ReconnectReason,
-          source: 'api' as ReconnectSource,
-          requestReason: String(req.body?.reason || 'api_manual').trim().slice(0, 80) || 'api_manual',
-          grade: operational.grade,
-          reconnectAttempts: runtime.reconnectAttempts,
-        },
-      });
-
-      return res.status(429).json({
-        ok: false,
-        message: rejectedMessage,
-        retryAfterSec: remainSec,
-        statusGrade: operational.grade,
-        statusSummary: operational.summary,
-        recommendations: operational.recommendations,
-        bot: runtime,
-        actor: req.user.id,
-      });
-    }
-
-    botReconnectApiLastAt.set(req.user.id, nowMs);
     const reason = String(req.body?.reason || 'api_manual').trim().slice(0, 80) || 'api_manual';
     const result = await forceBotReconnect(`api:${reason}`);
     const runtime = getBotRuntimeStatus();
@@ -645,8 +540,7 @@ async function startServer() {
       },
     });
 
-    const statusCode = result.ok ? 200 : 429;
-    const body = {
+    return res.status(result.ok ? 200 : 429).json({
       ok: result.ok,
       message: result.message,
       statusGrade: operational.grade,
@@ -654,17 +548,7 @@ async function startServer() {
       recommendations: operational.recommendations,
       bot: runtime,
       actor: req.user.id,
-    };
-
-    if (cacheKey) {
-      botReconnectApiIdempotencyCache.set(cacheKey, {
-        createdAtMs: nowMs,
-        statusCode,
-        body,
-      });
-    }
-
-    return res.status(statusCode).json(body);
+    });
   });
 
   app.get('/api/research/preset/:presetKey', async (req: Request, res: Response) => {
