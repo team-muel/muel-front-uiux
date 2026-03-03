@@ -5,16 +5,16 @@ import jwt from 'jsonwebtoken';
 import cron from 'node-cron';
 import { randomBytes, timingSafeEqual } from 'crypto';
 import { setDefaultResultOrder } from 'dns';
-import { supabase, isSupabaseConfigured } from './src/supabase';
-import { client, startBot, createForumThread, logEvent, getBotRuntimeStatus, evaluateBotRuntimeStatus, getBotNextCheckInSec, forceBotReconnect } from './src/bot';
-import { scrapeYouTubePost } from './src/scraper';
-import { getResolvedResearchPreset, isResearchPresetKey, type ResearchPresetKey, type ResolvedResearchPreset } from './src/content/researchContent';
-import { isResolvedResearchPreset } from './src/lib/researchPresetValidation';
-import { getReconnectFailureReason, toReconnectResult } from './src/lib/reconnectTelemetry';
-import { type ReconnectReason, type ReconnectResult, type ReconnectSource } from './src/types/reconnectTelemetry';
+import { supabase, isSupabaseConfigured } from './src/backend/supabase';
+import { client, startBot, createForumThread, logEvent, getBotRuntimeStatus, evaluateBotRuntimeStatus, getBotNextCheckInSec, forceBotReconnect } from './src/backend/bot';
+import { scrapeYouTubePost } from './src/backend/scraper';
+import { getResolvedResearchPreset, isResearchPresetKey, type ResearchPresetKey, type ResolvedResearchPreset } from './src/backend/content/researchContent';
+import { isResolvedResearchPreset } from './src/backend/lib/researchPresetValidation';
+import { getReconnectFailureReason, toReconnectResult } from './src/backend/lib/reconnectTelemetry';
+import { type ReconnectReason, type ReconnectResult, type ReconnectSource } from './src/backend/types/reconnectTelemetry';
 import { ChannelType } from 'discord.js';
-import { JwtUser, Source, SettingsRow, AuthenticatedRequest } from './src/types';
-import { imageUrlToBase64, truncateText, MAX_SOURCES_PER_GUILD, DEFAULT_PAGE_LIMIT, MAX_LOGS_DISPLAY, getSafeErrorMessage, validateYouTubeUrl } from './src/utils';
+import { JwtUser, Source, SettingsRow, AuthenticatedRequest } from './src/backend/types';
+import { imageUrlToBase64, truncateText, MAX_SOURCES_PER_GUILD, DEFAULT_PAGE_LIMIT, MAX_LOGS_DISPLAY, getSafeErrorMessage, validateYouTubeUrl } from './src/backend/utils';
 
 setDefaultResultOrder('ipv4first');
 

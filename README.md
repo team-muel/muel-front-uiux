@@ -66,6 +66,8 @@ YouTube가 내부 스크립트 형식을 수정하는 즉시 크롤러가 깨질
 - Backend + Bot: Render Web Service — `server.ts`를 호스팅하고 내부에서 봇을 함께 실행
 - DB/Auth/Storage: Supabase
 
+코드 경계(Frontend/Backend 분리 규칙)는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)를 기준으로 관리합니다.
+
 ### 2) 환경 변수(권장 이름)
 
 - 클라이언트(Vercel, 반드시 `VITE_` 접두사 사용):
