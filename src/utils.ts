@@ -15,46 +15,7 @@ const IMAGE_FETCH_MAX_BYTES = Number(process.env.IMAGE_FETCH_MAX_BYTES || 800000
  * - youtube.com/channel/CHANNELID ✅
  * - google.com/search?q=youtube ❌
  */
-export function validateYouTubeUrl(url: string): { valid: boolean; message?: string } {
-  try {
-    // Try to parse as URL
-    const urlObj = new URL(url);
-    const hostname = urlObj.hostname.toLowerCase();
-    
-    // Check if it's a YouTube domain
-    const youtubeHosts = [
-      'youtube.com',
-      'www.youtube.com',
-      'youtu.be',
-      'youtube-nocookie.com',
-      'www.youtube-nocookie.com'
-    ];
-    
-    const isYoutubeDomain = youtubeHosts.includes(hostname);
-    if (!isYoutubeDomain) {
-      return { 
-        valid: false, 
-        message: '유효한 YouTube URL이 아닙니다.' 
-      };
-    }
-    
-    // Check if URL has some path/query (not just bare youtube.com)
-    const hasContent = urlObj.pathname !== '/' || urlObj.search !== '';
-    if (!hasContent) {
-      return { 
-        valid: false, 
-        message: 'YouTube URL에 채널이나 동영상 정보가 포함되어야 합니다.' 
-      };
-    }
-    
-    return { valid: true };
-  } catch (error) {
-    return { 
-      valid: false, 
-      message: '올바른 URL 형식이 아닙니다.' 
-    };
-  }
-}
+// 유튜브 관련 유틸리티 제거됨
 
 /**
  * Download an image URL and return a data URI string (base64) or undefined if failed

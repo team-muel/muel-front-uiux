@@ -9,7 +9,6 @@ import { createAppRouter } from './src/routes/app';
 import { detectRuntimeEnvironment, getCookieSecurity } from './src/backend/runtimeEnvironment';
 // import { supabase, isSupabaseConfigured } from './src/supabase';
 import { client, startBot, createForumThread, logEvent, getBotRuntimeStatus, evaluateBotRuntimeStatus, getBotNextCheckInSec, forceBotReconnect } from './src/bot';
-import { scrapeYouTubePost } from './src/scraper';
 import { getResolvedResearchPreset, isResearchPresetKey } from './src/content/researchContent';
 import { isResolvedResearchPreset } from './src/lib/researchPresetValidation';
 import { getReconnectFailureReason, toReconnectResult } from './src/lib/reconnectTelemetry';

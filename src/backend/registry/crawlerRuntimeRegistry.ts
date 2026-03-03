@@ -1,7 +1,7 @@
 import { type Response } from 'express';
 import type { Client } from 'discord.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { type AuthenticatedRequest, type Source, type ScrapedYouTubePost } from '../../types';
+import { type AuthenticatedRequest, type Source } from '../../types';
 
 type SourceMutationBody = {
   url?: string;
@@ -21,7 +21,7 @@ export type CrawlerRuntimeRegistryDeps = {
   isSupabaseConfigured: boolean;
   supabase: SupabaseClient;
   client: Pick<Client, 'isReady'>;
-  scrapeYouTubePost: (url: string) => Promise<ScrapedYouTubePost>;
+  // scrapeYouTubePost 제거됨
   createForumThread: (forumChannelId: string, title: string, content: string, imageBase64?: string, user_id?: string) => Promise<unknown>;
   logEvent: (message: string, type: 'info' | 'error' | 'success', user_id?: string) => Promise<unknown>;
   imageUrlToBase64: (url: string) => Promise<string | undefined>;
@@ -39,7 +39,7 @@ export const createCrawlerRuntimeRegistry = (deps: CrawlerRuntimeRegistryDeps) =
     if (!userId || !forumChannelId) return;
 
     try {
-      const { content, imageUrl, author } = await deps.scrapeYouTubePost(source.url);
+      // scrapeYouTubePost 제거됨
       const postSignature = `${content.substring(0, 100)}_${imageUrl}`;
 
       const updateData: Partial<Pick<Source, 'last_check_status' | 'last_check_error' | 'last_check_at' | 'last_post_signature'>> = {
