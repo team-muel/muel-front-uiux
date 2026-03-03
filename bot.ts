@@ -12,6 +12,7 @@ process.on('uncaughtException', (error) => {
 });
 
 const handleShutdownSignal = (signal: NodeJS.Signals) => {
+  // 프로세스 종료 시 Discord 세션을 먼저 정리해 소켓 잔여 연결을 방지합니다.
   console.log(`[PROCESS] Received ${signal}, shutting down Discord client...`);
   try {
     if (client.isReady()) {
@@ -37,9 +38,8 @@ if (!token) {
   process.exit(1);
 }
 
-// 1. startBot이 Promise를 반환하지 않는 경우를 대비한 안전한 호출 방식
+// startBot 내부에서 연결/재연결 상태를 관리하므로 진입점에서는 호출과 예외만 관리합니다.
 try {
-  // 만약 startBot이 내부적으로 async라면, 아래처럼 호출하는 것이 가장 깔끔합니다.
   startBot(token); 
   console.log('Muel bot is initiating...'); 
 } catch (err) {

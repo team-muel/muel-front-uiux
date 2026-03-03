@@ -10,6 +10,13 @@ type BenchmarkReconnectSummary = {
   success: number;
   failed: number;
   rejected: number;
+  recent30m: {
+    total: number;
+    success: number;
+    failed: number;
+    rejected: number;
+    successRate: number;
+  };
   bySource: Array<{ source: string; count: number }>;
   byReason: Array<{ reason: string; count: number }>;
   lastResultAt: string | null;
@@ -155,6 +162,16 @@ export const useReconnectBenchmarkSummary = ({ visible, nowMs }: UseReconnectBen
     return summary.bySource.slice(0, 2);
   }, [summary]);
 
+  const recent30m = useMemo(() => {
+    return summary?.recent30m || {
+      total: 0,
+      success: 0,
+      failed: 0,
+      rejected: 0,
+      successRate: 0,
+    };
+  }, [summary]);
+
   const lastResultText = useMemo(() => {
     const raw = summary?.lastResultAt;
     if (!raw) {
@@ -176,6 +193,7 @@ export const useReconnectBenchmarkSummary = ({ visible, nowMs }: UseReconnectBen
     successRate,
     topReasons,
     topSources,
+    recent30m,
     lastResultText,
     refreshSummary,
     isBackoff: refreshDelayMs > BENCHMARK_SUMMARY_REFRESH_MS,

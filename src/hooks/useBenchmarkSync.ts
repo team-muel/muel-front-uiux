@@ -5,6 +5,7 @@ import { type BenchmarkEventRecord, getPendingBenchmarkEvents, markBenchmarkEven
 const BENCHMARK_SYNC_INTERVAL_MS = 15000;
 const BENCHMARK_SYNC_BATCH_SIZE = 80;
 
+// 일반 경로: API fetch 래퍼를 통해 주기적으로 이벤트를 업로드합니다.
 const postBenchmarkEvents = async (events: BenchmarkEventRecord[]) => {
   try {
     const response = await apiFetch('/api/benchmark/events', {
@@ -19,6 +20,7 @@ const postBenchmarkEvents = async (events: BenchmarkEventRecord[]) => {
 };
 
 const flushByKeepalive = () => {
+  // 페이지 이탈 직전에는 keepalive 전송으로 유실 가능성을 줄입니다.
   const pending = getPendingBenchmarkEvents(BENCHMARK_SYNC_BATCH_SIZE);
   if (!pending.length) {
     return;
@@ -43,6 +45,7 @@ const flushByKeepalive = () => {
 
 export const useBenchmarkSync = () => {
   useEffect(() => {
+    // 마운트 즉시 1회 동기화 후, 주기적으로 배치 동기화를 반복합니다.
     void syncBenchmarkEvents(postBenchmarkEvents, BENCHMARK_SYNC_BATCH_SIZE);
 
     const interval = window.setInterval(() => {

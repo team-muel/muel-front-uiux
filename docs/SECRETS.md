@@ -21,6 +21,8 @@
 - `DISCORD_BOT_ALERT_WEBHOOK_URL` : 봇 오프라인/복구 경보를 수신할 Discord Webhook URL(선택)
 - `DISCORD_BOT_ALERT_COOLDOWN_MS` : 오프라인 경보 중복 방지 최소 간격(ms, 기본 300000, 선택)
 - `DISCORD_INTERACTION_TTL_MS` : Slash 응답 버튼 인터랙션 유효시간(ms, 기본 300000, 선택)
+- `BOT_RECONNECT_API_COOLDOWN_MS` : `/api/bot/reconnect` API 최소 호출 간격(ms, 기본 10000, 선택)
+- `BOT_RECONNECT_IDEMPOTENCY_TTL_MS` : `/api/bot/reconnect` `idempotencyKey` 응답 캐시 TTL(ms, 기본 30000, 선택)
 - `GEMINI_API_KEY` : Gemini(또는 다른 AI) API 키 (선택)
 - `SESSION_SECRET` : JWT/세션 서명용 랜덤 문자열
 - `RESEARCH_PRESET_ADMIN_USER_IDS` : 리서치 프리셋 업서트 API 접근 허용 Discord 사용자 ID 목록(콤마 구분)

@@ -1,32 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { apiFetch } from '../../config';
 import { SurfaceCard } from '../ui/SurfaceCard';
 import { UiButton } from '../ui/UiButton';
 import { type ResearchPresetKey } from '../../content/researchContent';
-import { trackBenchmarkEvent } from '../../lib/benchmarkTracker';
-import { type BotStatusApiResponse } from '../../types/botStatus';
 import { useReconnectBenchmarkSummary } from '../../hooks/useReconnectBenchmarkSummary';
-
-type HistoryRow = {
-  id: string;
-  presetKey: string;
-  actorUserId: string;
-  actorUsername: string;
-  source: string;
-  payload: unknown;
-  metadata?: unknown;
-  createdAt: string;
-};
+import { useBotStatusPolling } from '../../hooks/useBotStatusPolling';
+import { usePresetHistoryPolling, type HistoryRow } from '../../hooks/usePresetHistoryPolling';
 
 const RESTORE_CONFIRM_TTL_MS = 5000;
 const FOCUS_HIGHLIGHT_TTL_MS = 2600;
-const HISTORY_AUTO_REFRESH_MS = 30000;
-const HISTORY_AUTO_REFRESH_BACKOFF_MS = 60000;
-const BOT_STATUS_REFRESH_MS = 15000;
-const BOT_STATUS_REFRESH_BACKOFF_MS = 45000;
 const SYNC_ELAPSED_TICK_MS = 1000;
 const SYNC_STALE_AFTER_MS = 90000;
-const BOT_STATUS_STALE_AFTER_MS = 90000;
 const RECENT_WINDOW_OPTIONS = [10, 30, 60] as const;
 type RecentWindowMinutes = (typeof RECENT_WINDOW_OPTIONS)[number];
 const RECENT_WINDOW_STORAGE_KEY = 'muel_research_history_recent_window_minutes';
@@ -58,25 +41,6 @@ const toElapsedText = (diffMs: number) => {
   return `${totalHours}h ago`;
 };
 
-const getSyncErrorReason = (status: number) => {
-  if (status === 401) return 'AUTH';
-  if (status === 403) return 'FORBIDDEN';
-  if (status === 404) return 'NOT_FOUND';
-  if (status === 422) return 'INVALID_PAYLOAD';
-  if (status === 503) return 'CONFIG';
-  if (status >= 500) return 'SERVER';
-  return 'REQUEST';
-};
-
-const toBotPollDelayMs = (nextCheckInSec?: number) => {
-  if (!Number.isFinite(nextCheckInSec)) {
-    return BOT_STATUS_REFRESH_MS;
-  }
-
-  const sec = Math.max(10, Math.min(120, Number(nextCheckInSec)));
-  return sec * 1000;
-};
-
 const getActionLabel = (source: string) => {
   if (source === 'restore') return 'RESTORE';
   if (source === 'upsert') return 'UPSERT';
@@ -96,15 +60,6 @@ const getRestoredFromHistoryId = (metadata: unknown) => {
 
   const candidate = (metadata as Record<string, unknown>).restoredFromHistoryId;
   return typeof candidate === 'string' && candidate.trim() ? candidate : null;
-};
-
-const formatRestoreError = (status: number, message?: string) => {
-  if (status === 401) return '인증이 만료되었습니다. 다시 로그인 후 시도하세요.';
-  if (status === 403) return '복원 권한이 없습니다. 관리자 allowlist를 확인하세요.';
-  if (status === 404) return '선택한 이력 항목을 찾을 수 없습니다.';
-  if (status === 422) return '선택한 스냅샷 payload 형식이 유효하지 않습니다.';
-  if (status === 503) return '운영 설정이 준비되지 않았습니다. Supabase 또는 관리자 allowlist를 확인하세요.';
-  return message || '복원 처리 중 오류가 발생했습니다.';
 };
 
 const SUMMARY_KEYS = ['page', 'stepNav', 'core', 'hero', 'charts', 'data'] as const;
@@ -182,33 +137,29 @@ interface ResearchPresetHistoryPanelProps {
 }
 
 export const ResearchPresetHistoryPanel = ({ presetKey, initialHistoryId = null, onRestored }: ResearchPresetHistoryPanelProps) => {
-  const [rows, setRows] = useState<HistoryRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [visible, setVisible] = useState(true);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [confirmRestoreRowId, setConfirmRestoreRowId] = useState<string | null>(null);
-  const [restoringRowId, setRestoringRowId] = useState<string | null>(null);
-  const [restoreError, setRestoreError] = useState<string | null>(null);
   const [focusedRowId, setFocusedRowId] = useState<string | null>(null);
   const [recentWindowMinutes, setRecentWindowMinutes] = useState<RecentWindowMinutes>(() => getStoredRecentWindowMinutes());
-  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'ok' | 'error'>('idle');
-  const [syncErrorReason, setSyncErrorReason] = useState<string | null>(null);
   const [syncElapsedNow, setSyncElapsedNow] = useState(() => Date.now());
-  const [autoRefreshDelayMs, setAutoRefreshDelayMs] = useState(HISTORY_AUTO_REFRESH_MS);
-  const [botStatus, setBotStatus] = useState<BotStatusApiResponse | null>(null);
-  const [botStatusError, setBotStatusError] = useState<string | null>(null);
-  const [lastBotSyncedAt, setLastBotSyncedAt] = useState<string | null>(null);
-  const [botRefreshDelayMs, setBotRefreshDelayMs] = useState(BOT_STATUS_REFRESH_MS);
-  const [botActionMessage, setBotActionMessage] = useState<string | null>(null);
-  const [isBotReconnectPending, setIsBotReconnectPending] = useState(false);
   const rowRefs = useRef<Record<string, HTMLElement | null>>({});
-  const isFetchingHistoryRef = useRef(false);
-  const autoRefreshDelayRef = useRef(HISTORY_AUTO_REFRESH_MS);
-  const botRefreshDelayRef = useRef(BOT_STATUS_REFRESH_MS);
   const autoJumpHandledRef = useRef(false);
-  const previousBotHealthyRef = useRef<boolean | null>(null);
-  const previousBotStatusErrorRef = useRef<string | null>(null);
+
+  const {
+    rows,
+    loading,
+    visible,
+    restoringRowId,
+    restoreError,
+    lastSyncedAt,
+    syncStatus,
+    syncErrorReason,
+    autoRefreshDelayMs,
+    isBackoff: isHistoryBackoff,
+    setRestoreError,
+    fetchHistory,
+    restoreSnapshot,
+  } = usePresetHistoryPolling({ presetKey, initialHistoryId, onRestored });
 
   const {
     summary: benchmarkSummary,
@@ -216,10 +167,26 @@ export const ResearchPresetHistoryPanel = ({ presetKey, initialHistoryId = null,
     successRate: reconnectSuccessRate,
     topReasons: topReconnectReasons,
     topSources: topReconnectSources,
+    recent30m: reconnectRecent30m,
     lastResultText: reconnectLastResultText,
     refreshSummary: refreshBenchmarkSummary,
     isBackoff: isBenchmarkSummaryBackoff,
   } = useReconnectBenchmarkSummary({ visible, nowMs: syncElapsedNow });
+
+  const {
+    botStatus,
+    botStatusError,
+    lastBotSyncedAt,
+    botRefreshDelayMs,
+    botActionMessage,
+    isBotReconnectPending,
+    botSyncElapsedText,
+    botStatusKind,
+    botOutageElapsedText,
+    fetchBotStatus,
+    triggerBotReconnect,
+    isBackoff: isBotStatusBackoff,
+  } = useBotStatusPolling({ presetKey, visible, nowMs: syncElapsedNow });
 
   const syncElapsedText = useMemo(() => {
     if (!lastSyncedAt) {
@@ -292,299 +259,6 @@ export const ResearchPresetHistoryPanel = ({ presetKey, initialHistoryId = null,
       { restore: 0, upsert: 0, total: 0 },
     );
   }, [recentWindowMinutes, rows]);
-
-  const botSyncElapsedText = useMemo(() => {
-    if (!lastBotSyncedAt) {
-      return '-';
-    }
-
-    const syncedAtMs = Date.parse(lastBotSyncedAt);
-    if (!Number.isFinite(syncedAtMs)) {
-      return '-';
-    }
-
-    return toElapsedText(syncElapsedNow - syncedAtMs);
-  }, [lastBotSyncedAt, syncElapsedNow]);
-
-  const botStatusKind = useMemo(() => {
-    if (!botStatus) {
-      return botStatusError ? 'error' : 'idle';
-    }
-
-    if (botStatusError) {
-      return 'stale';
-    }
-
-    if (!lastBotSyncedAt) {
-      return botStatus.healthy ? 'ok' : 'error';
-    }
-
-    const syncedAtMs = Date.parse(lastBotSyncedAt);
-    if (!Number.isFinite(syncedAtMs)) {
-      return botStatus.healthy ? 'ok' : 'error';
-    }
-
-    if (syncElapsedNow - syncedAtMs > BOT_STATUS_STALE_AFTER_MS) {
-      return 'stale';
-    }
-
-    return botStatus.healthy ? 'ok' : 'error';
-  }, [botStatus, botStatusError, lastBotSyncedAt, syncElapsedNow]);
-
-  const botOutageElapsedText = useMemo(() => {
-    if (!botStatus || botStatus.healthy || !botStatus.outageDurationMs) {
-      return '0s';
-    }
-
-    return toElapsedText(botStatus.outageDurationMs).replace(' ago', '');
-  }, [botStatus]);
-
-  const fetchBotStatus = useCallback(async () => {
-    try {
-      const response = await apiFetch('/api/bot/status');
-      if (response.status === 401 || response.status === 403) {
-        setBotStatusError('FORBIDDEN');
-        botRefreshDelayRef.current = BOT_STATUS_REFRESH_BACKOFF_MS;
-        setBotRefreshDelayMs(BOT_STATUS_REFRESH_BACKOFF_MS);
-        return false;
-      }
-
-      if (!response.ok) {
-        setBotStatusError(getSyncErrorReason(response.status));
-        botRefreshDelayRef.current = BOT_STATUS_REFRESH_BACKOFF_MS;
-        setBotRefreshDelayMs(BOT_STATUS_REFRESH_BACKOFF_MS);
-        return false;
-      }
-
-      const payload = (await response.json()) as BotStatusApiResponse;
-      setBotStatus(payload);
-      setBotStatusError(null);
-      setLastBotSyncedAt(new Date().toISOString());
-      const nextDelayMs = toBotPollDelayMs(payload.nextCheckInSec);
-      botRefreshDelayRef.current = nextDelayMs;
-      setBotRefreshDelayMs(nextDelayMs);
-      return true;
-    } catch {
-      setBotStatusError('NETWORK');
-      botRefreshDelayRef.current = BOT_STATUS_REFRESH_BACKOFF_MS;
-      setBotRefreshDelayMs(BOT_STATUS_REFRESH_BACKOFF_MS);
-      return false;
-    }
-  }, []);
-
-  const triggerBotReconnect = useCallback(async () => {
-    setIsBotReconnectPending(true);
-    setBotActionMessage(null);
-    trackBenchmarkEvent('bot_reconnect_ui_attempt', {
-      presetKey,
-      source: 'studio_panel',
-    });
-    try {
-      const response = await apiFetch('/api/bot/reconnect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: 'studio_panel' }),
-      });
-
-      const payload = (await response.json().catch(() => ({}))) as {
-        ok?: boolean;
-        message?: string;
-      };
-
-      if (!response.ok) {
-        trackBenchmarkEvent('bot_reconnect_ui_failed', {
-          presetKey,
-          source: 'studio_panel',
-          status: response.status,
-        });
-        setBotActionMessage(payload.message || '봇 재연결 요청에 실패했습니다.');
-        return;
-      }
-
-      trackBenchmarkEvent('bot_reconnect_ui_success', {
-        presetKey,
-        source: 'studio_panel',
-      });
-      setBotActionMessage(payload.message || '봇 재연결 요청을 전송했습니다.');
-      await fetchBotStatus();
-    } catch {
-      trackBenchmarkEvent('bot_reconnect_ui_failed', {
-        presetKey,
-        source: 'studio_panel',
-        status: 'NETWORK',
-      });
-      setBotActionMessage('네트워크 문제로 봇 재연결 요청에 실패했습니다.');
-    } finally {
-      setIsBotReconnectPending(false);
-    }
-  }, [fetchBotStatus, presetKey]);
-
-  const fetchHistory = useCallback(async (options?: { silent?: boolean }) => {
-    if (isFetchingHistoryRef.current) {
-      return true;
-    }
-
-    isFetchingHistoryRef.current = true;
-    const isSilent = Boolean(options?.silent);
-    if (!isSilent) {
-      setLoading(true);
-    }
-
-    try {
-      const historyLimit = initialHistoryId ? 100 : 20;
-      const response = await apiFetch(`/api/research/preset/${presetKey}/history?limit=${historyLimit}`);
-      if (response.status === 401 || response.status === 403 || response.status === 503) {
-        setVisible(false);
-        setSyncStatus('error');
-        setSyncErrorReason(getSyncErrorReason(response.status));
-        return false;
-      }
-
-      if (!response.ok) {
-        setRows([]);
-        setSyncStatus('error');
-        setSyncErrorReason(getSyncErrorReason(response.status));
-        return false;
-      }
-
-      const payload = (await response.json()) as { rows?: HistoryRow[] };
-      setRows(Array.isArray(payload.rows) ? payload.rows : []);
-      setVisible(true);
-      if (!isSilent) {
-        setExpandedRowId(null);
-        setConfirmRestoreRowId(null);
-        setRestoreError(null);
-      }
-      setLastSyncedAt(new Date().toISOString());
-      setSyncStatus('ok');
-      setSyncErrorReason(null);
-      autoRefreshDelayRef.current = HISTORY_AUTO_REFRESH_MS;
-      setAutoRefreshDelayMs(HISTORY_AUTO_REFRESH_MS);
-      return true;
-    } catch {
-      setRows([]);
-      setSyncStatus('error');
-      setSyncErrorReason('NETWORK');
-      return false;
-    } finally {
-      isFetchingHistoryRef.current = false;
-      if (!isSilent) {
-        setLoading(false);
-      }
-    }
-  }, [initialHistoryId, presetKey]);
-
-  const restoreSnapshot = useCallback(
-    async (historyId: string) => {
-      setRestoringRowId(historyId);
-      setRestoreError(null);
-      setConfirmRestoreRowId(null);
-
-      try {
-        const response = await apiFetch(`/api/research/preset/${presetKey}/restore/${historyId}`, {
-          method: 'POST',
-        });
-
-        if (response.status === 401 || response.status === 403 || response.status === 503) {
-          setVisible(false);
-          return;
-        }
-
-        if (!response.ok) {
-          const payload = (await response.json().catch(() => ({}))) as { error?: string };
-          setRestoreError(formatRestoreError(response.status, payload.error));
-          return;
-        }
-
-        await fetchHistory();
-        onRestored?.();
-      } catch {
-        setRestoreError('네트워크 연결 상태를 확인한 뒤 다시 시도하세요.');
-      } finally {
-        setRestoringRowId(null);
-      }
-    },
-    [fetchHistory, onRestored, presetKey],
-  );
-
-  useEffect(() => {
-    void fetchHistory();
-    void fetchBotStatus();
-  }, [fetchBotStatus, fetchHistory]);
-
-  useEffect(() => {
-    autoRefreshDelayRef.current = HISTORY_AUTO_REFRESH_MS;
-    setAutoRefreshDelayMs(HISTORY_AUTO_REFRESH_MS);
-    let timeoutId: number | null = null;
-    let cancelled = false;
-
-    const scheduleNext = (delayMs: number) => {
-      if (cancelled) {
-        return;
-      }
-
-      timeoutId = window.setTimeout(async () => {
-        if (cancelled) {
-          return;
-        }
-
-        if (document.visibilityState !== 'visible' || restoringRowId !== null || !visible) {
-          scheduleNext(HISTORY_AUTO_REFRESH_MS);
-          return;
-        }
-
-        const ok = await fetchHistory({ silent: true });
-        autoRefreshDelayRef.current = ok ? HISTORY_AUTO_REFRESH_MS : HISTORY_AUTO_REFRESH_BACKOFF_MS;
-        setAutoRefreshDelayMs(autoRefreshDelayRef.current);
-        scheduleNext(autoRefreshDelayRef.current);
-      }, delayMs);
-    };
-
-    scheduleNext(autoRefreshDelayRef.current);
-
-    return () => {
-      cancelled = true;
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [fetchHistory, restoringRowId, visible]);
-
-  useEffect(() => {
-    botRefreshDelayRef.current = BOT_STATUS_REFRESH_MS;
-    setBotRefreshDelayMs(BOT_STATUS_REFRESH_MS);
-    let timeoutId: number | null = null;
-    let cancelled = false;
-
-    const scheduleNext = (delayMs: number) => {
-      if (cancelled) {
-        return;
-      }
-
-      timeoutId = window.setTimeout(async () => {
-        if (cancelled) {
-          return;
-        }
-
-        if (document.visibilityState !== 'visible' || !visible) {
-          scheduleNext(botRefreshDelayRef.current);
-          return;
-        }
-
-        await fetchBotStatus();
-        scheduleNext(botRefreshDelayRef.current);
-      }, delayMs);
-    };
-
-    scheduleNext(botRefreshDelayRef.current);
-
-    return () => {
-      cancelled = true;
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [fetchBotStatus, visible]);
 
   useEffect(() => {
     if (!confirmRestoreRowId) {
@@ -666,50 +340,6 @@ export const ResearchPresetHistoryPanel = ({ presetKey, initialHistoryId = null,
     setRestoreError('딥링크 이력 항목을 최근 100건 내에서 찾지 못했습니다. 이력 필터를 확인하거나 항목 ID를 다시 확인하세요.');
   }, [initialHistoryId, jumpToHistoryRow, loading, rows]);
 
-  useEffect(() => {
-    if (!botStatus) {
-      return;
-    }
-
-    const currentHealthy = botStatus.healthy;
-    const previousHealthy = previousBotHealthyRef.current;
-    if (previousHealthy === null) {
-      previousBotHealthyRef.current = currentHealthy;
-      return;
-    }
-
-    if (previousHealthy !== currentHealthy) {
-      trackBenchmarkEvent(currentHealthy ? 'bot_status_recovered' : 'bot_status_degraded', {
-        presetKey,
-        wsStatus: botStatus.bot?.wsStatus,
-        reconnectAttempts: botStatus.bot?.reconnectAttempts,
-        outageDurationMs: botStatus.outageDurationMs,
-      });
-    }
-
-    previousBotHealthyRef.current = currentHealthy;
-  }, [botStatus, presetKey]);
-
-  useEffect(() => {
-    const previousError = previousBotStatusErrorRef.current;
-    if (previousError !== botStatusError) {
-      if (botStatusError) {
-        trackBenchmarkEvent('bot_status_poll_error', {
-          presetKey,
-          reason: botStatusError,
-          pollMs: botRefreshDelayMs,
-        });
-      } else if (previousError) {
-        trackBenchmarkEvent('bot_status_poll_recovered', {
-          presetKey,
-          previousReason: previousError,
-          pollMs: botRefreshDelayMs,
-        });
-      }
-      previousBotStatusErrorRef.current = botStatusError;
-    }
-  }, [botRefreshDelayMs, botStatusError, presetKey]);
-
   if (!visible) {
     return null;
   }
@@ -779,6 +409,12 @@ export const ResearchPresetHistoryPanel = ({ presetKey, initialHistoryId = null,
               </span>
               <span className="mono-data research-admin-summary-chip" data-kind="recent">
                 RATE {reconnectSuccessRate}%
+              </span>
+              <span className="mono-data research-admin-summary-chip" data-kind="recent" title="Reconnect results in the last 30 minutes">
+                W30 {reconnectRecent30m.total}
+              </span>
+              <span className="mono-data research-admin-summary-chip" data-kind="recent" title="Reconnect success rate in the last 30 minutes">
+                W30_RATE {reconnectRecent30m.successRate}%
               </span>
               <span className="mono-data research-admin-summary-chip" data-kind="recent" title="Last reconnect result timestamp">
                 LAST {reconnectLastResultText}
@@ -865,7 +501,7 @@ export const ResearchPresetHistoryPanel = ({ presetKey, initialHistoryId = null,
                   RECONNECT {botStatus.bot?.reconnectAttempts ?? 0}
                 </span>
               ) : null}
-              {botRefreshDelayMs > BOT_STATUS_REFRESH_MS ? (
+              {isBotStatusBackoff ? (
                 <span className="research-admin-sync-badge" data-kind="backoff">
                   BACKOFF
                 </span>
@@ -909,12 +545,12 @@ export const ResearchPresetHistoryPanel = ({ presetKey, initialHistoryId = null,
 
         <p className="mono-data research-admin-sync" data-kind={syncDisplayKind}>
           Last synced: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('ko-KR') : '-'} ({syncElapsedText}) · poll {Math.floor(autoRefreshDelayMs / 1000)}s
-          {autoRefreshDelayMs > HISTORY_AUTO_REFRESH_MS ? (
+          {isHistoryBackoff ? (
             <span className="research-admin-sync-badge" data-kind="backoff" aria-label="Polling backoff mode active">
               BACKOFF
             </span>
           ) : null}
-          {autoRefreshDelayMs > HISTORY_AUTO_REFRESH_MS && syncErrorReason ? (
+          {isHistoryBackoff && syncErrorReason ? (
             <span className="research-admin-sync-badge" data-kind="reason" aria-label="Last polling failure reason">
               {syncErrorReason}
             </span>
@@ -991,6 +627,7 @@ export const ResearchPresetHistoryPanel = ({ presetKey, initialHistoryId = null,
                           return;
                         }
 
+                        setConfirmRestoreRowId(null);
                         void restoreSnapshot(row.id);
                       }}
                     >

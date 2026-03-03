@@ -178,25 +178,24 @@ npm run seed:research-presets
 - `POST /api/research/preset/:presetKey/restore/:historyId` : 이력 스냅샷 복원
 - `GET /api/bot/status` : 봇 상태/권장 조치 조회
 - `POST /api/bot/reconnect` : 봇 재연결 트리거 (관리자)
+  - 요청 본문(선택): `idempotencyKey` (동일 키 재요청 시 TTL 내 동일 응답 재사용)
+  - 쿨다운 거절(429) 응답에 `retryAfterSec` 포함
 
-Discord 슬래시 명령(관리자 전용):
+Discord 슬래시 명령(기본 최소 모드):
 
-- `/bot-status`
-- `/bot-reconnect reason:<optional>`
-- `/preset-history preset_key:<embedded|studio> limit:<1~20>`
-- `/preset-restore preset_key:<embedded|studio> history_id:<uuid>`
-- `/preset-upsert preset_key:<embedded|studio> payload_json:<json>`
-- `/preset-upsert-from-history source_preset_key:<embedded|studio> history_id:<uuid> target_preset_key:<embedded|studio>`
+- `/<DISCORD_WEBSITE_COMMAND_NAME>` (기본값: `/site-link`) → 웹사이트 링크 1개 공유
 
-`/preset-history` 응답에는 5건 단위 `Restore` 버튼과 `Prev/Next` 페이지 버튼이 함께 제공되며, 명령 실행자(관리자)만 클릭 실행할 수 있습니다.
-`/bot-status` 응답은 상태 임베드 카드로 출력되며, `Refresh` 버튼으로 명령 재입력 없이 상태를 즉시 갱신할 수 있습니다(명령 실행자 관리자만 가능).
-
-- 모든 슬래시 응답 버튼은 `DISCORD_INTERACTION_TTL_MS` 경과 시 만료되며, 만료 클릭 시 버튼이 비활성화되고 재실행 안내가 표시됩니다.
+기본값(`DISCORD_MINIMAL_COMMAND_MODE=true`)에서는 위 단일 명령만 등록됩니다.
+`DISCORD_MINIMAL_COMMAND_MODE=false`로 바꾸면 기존 관리자 명령(`bot-status`, `preset-*`)도 함께 등록됩니다.
 
 관련 환경변수:
 
 - `RESEARCH_PRESET_ADMIN_USER_IDS` : Discord 사용자 ID allowlist
 - `DISCORD_COMMAND_GUILD_ID` (선택): 지정 길드에만 명령을 즉시 등록(개발/운영 검증 권장)
+- `DISCORD_MINIMAL_COMMAND_MODE` (선택): `true`면 단일 링크 명령만 등록(기본값 true)
+- `DISCORD_WEBSITE_COMMAND_NAME` (선택): 링크 공유 슬래시 명령 이름(기본값 `site-link`)
+- `DISCORD_WEBSITE_URL` (권장): 공유할 웹사이트 URL
+- `DISCORD_WEBSITE_WEBHOOK_URL` (선택): 설정 시 명령 입력 시점에 웹훅으로 링크를 게시
 - `RESEARCH_STUDIO_URL` (선택): Discord 명령 성공 응답에 Studio 이력 패널 링크를 포함할 때 사용하는 기준 URL (예: `https://your-frontend.example.com`)
 - `RESEARCH_PRESET_MUTATION_COOLDOWN_MS` (선택): Discord restore/upsert 계열 명령의 중복 실행 방지 쿨다운(ms, 기본 8000)
 - `DISCORD_RECONNECT_DELAY_MS` (선택): 세션 무효화/샤드 단절 발생 시 자동 재접속 대기 시간(ms, 기본 8000)
@@ -205,6 +204,8 @@ Discord 슬래시 명령(관리자 전용):
 - `DISCORD_BOT_ALERT_COOLDOWN_MS` (선택): 오프라인 경보 전송 최소 간격(ms, 기본 300000)
 - `DISCORD_INTERACTION_TTL_MS` (선택): Discord 버튼 인터랙션 유효시간(ms, 기본 300000)
 - `BOT_STATUS_VIEW_BENCHMARK_INTERVAL_MS` (선택): `/api/bot/status` 조회 벤치마크 기록 최소 간격(ms, 기본 60000)
+- `BOT_RECONNECT_API_COOLDOWN_MS` (선택): `/api/bot/reconnect` API 호출 최소 간격(ms, 기본 10000)
+- `BOT_RECONNECT_IDEMPOTENCY_TTL_MS` (선택): `/api/bot/reconnect` `idempotencyKey` 재사용 응답 보존 시간(ms, 기본 30000)
 
 Studio 링크 포맷(자동 생성):
 
@@ -231,6 +232,7 @@ Studio 링크 포맷(자동 생성):
 - Studio `ADMIN PRESET HISTORY`에서 `Reconnect Bot` 버튼으로 `/api/bot/reconnect`를 직접 실행할 수 있습니다.
 - `/health`는 `botStatusGrade` 필드를 함께 제공해 외부 모니터링 시스템에서 등급 기반 알림을 구성할 수 있습니다.
 - Studio 패널은 봇 상태 조회 실패 시 마지막 정상 스냅샷을 유지하고, `bot_status_poll_error`/`bot_status_poll_recovered` 전이 이벤트를 벤치마크로 기록합니다.
+- Studio `ADMIN PRESET HISTORY`의 reconnect 요약에는 최근 30분(`W30`, `W30_RATE`) 추세가 포함됩니다.
 
 문서나 워크플로 샘플을 더 원하시면 GitHub Actions 템플릿 또는 Render/Vercel 스냅샷을 생성해 드리겠습니다.
 
