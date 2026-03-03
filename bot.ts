@@ -1,4 +1,4 @@
-import { client, startBot } from './src/backend/bot';
+import { client, startBot } from './src/bot';
 import { setDefaultResultOrder } from 'dns';
 
 setDefaultResultOrder('ipv4first');
