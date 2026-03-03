@@ -1,3 +1,6 @@
+client.once('ready', async () => {
+  await registerMuelCommand();
+});
 import {
   Client,
   GatewayIntentBits,
@@ -1516,17 +1519,23 @@ const handlePresetUpsertFromHistoryCommand = async (interaction: ChatInputComman
   }
 };
 
-const presetCommandHandlers: Record<PresetCommandName, PresetCommandHandler> = {
-  'bot-status': handleBotStatusCommand,
-  'bot-reconnect': handleBotReconnectCommand,
-  'preset-history': handlePresetHistoryCommand,
-  'preset-restore': handlePresetRestoreCommand,
-  'preset-upsert': handlePresetUpsertCommand,
-  'preset-upsert-from-history': handlePresetUpsertFromHistoryCommand,
+
+// /뮤엘 명령만 등록
+import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
+
+const registerMuelCommand = async () => {
+  const command = new SlashCommandBuilder()
+    .setName('뮤엘')
+    .setDescription('뮤엘 공식 사이트 링크를 안내합니다.');
+  await client.application?.commands.set([command]);
+  console.log('[RENDER_EVENT] BOT_COMMANDS_REGISTERED: /뮤엘');
 };
 
-const isPresetCommandName = (commandName: string): commandName is PresetCommandName => {
-  return commandName in presetCommandHandlers;
+const handleMuelCommand = async (interaction: ChatInputCommandInteraction) => {
+  await interaction.reply({
+    content: '뮤엘 공식 사이트: https://muel.vercel.app/',
+    ephemeral: true,
+  });
 };
 
 client.on('interactionCreate', async (interaction: Interaction) => {
@@ -1703,34 +1712,15 @@ export async function createForumThread(forumChannelId: string, title: string, c
       messageOptions.files = [attachment];
     }
 
-    let thread;
-    if (channel.type === ChannelType.GuildForum) {
-      const forumChannel = channel as ForumChannel;
-      // Create a thread in the forum channel
-      thread = await forumChannel.threads.create({
-        name: title.substring(0, 100), // Discord thread names are limited to 100 chars
-        message: messageOptions,
-      });
-    } else {
-      const textChannel = channel as TextChannel;
-      // Create a thread in the text channel
-      thread = await textChannel.threads.create({
-        name: title.substring(0, 100),
-      });
-      // Send the message to the newly created thread
-      await thread.send(messageOptions);
+    try {
+      if (interaction.isChatInputCommand() && interaction.commandName === '뮤엘') {
+        await handleMuelCommand(interaction);
+        return;
+      }
+    } catch (err) {
+      console.error('[Discord Bot] interactionCreate error:', err);
     }
-
-    logEvent(`Created new thread: ${title}`, 'success', user_id);
-    return thread;
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[Discord Bot] Error creating thread:', error);
-    logEvent(`Failed to create thread: ${errorMessage}`, 'error', user_id);
-    throw error;
-  }
-}
-
+  });
 // Start the bot if token is available
 export function startBot(token: string) {
   botRuntimeStatus.started = true;
