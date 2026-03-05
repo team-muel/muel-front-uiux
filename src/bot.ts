@@ -1646,6 +1646,7 @@ export async function logEvent(message: string, type: 'info' | 'error' | 'succes
   } catch (err) {
     console.error('Failed to write log to DB:', err);
   }
+} // 👈 닫는 괄호 추가 완료!
 
 // Function to trigger a new forum post
 export async function createForumThread(forumChannelId: string, title: string, content: string, imageBase64?: string, user_id?: string) {
@@ -1673,16 +1674,20 @@ export async function createForumThread(forumChannelId: string, title: string, c
       const attachment = new AttachmentBuilder(buffer, { name: 'uploaded_image.png' });
       messageOptions.files = [attachment];
     }
-
-    try {
-      if (interaction.isChatInputCommand() && interaction.commandName === '뮤엘') {
-        await handleMuelCommand(interaction);
-        return;
-      }
-    } catch (err) {
-      console.error('[Discord Bot] interactionCreate error:', err);
+    
+    // 포럼 또는 텍스트 채널에 전송하는 로직 (에러 나던 엉뚱한 코드는 지우고 괄호 닫기)
+    if (channel.type === ChannelType.GuildForum) {
+      await (channel as ForumChannel).threads.create({
+        name: title,
+        message: messageOptions,
+      });
+    } else {
+      await (channel as TextChannel).send(messageOptions);
     }
-  });
+  } catch (err) {
+    console.error('[Discord Bot] createForumThread error:', err);
+  }
+} // 👈 닫는 괄호 추가 및 꼬인 코드 삭제 완료!
 // Start the bot if token is available
 export function startBot(token: string) {
   botRuntimeStatus.started = true;
