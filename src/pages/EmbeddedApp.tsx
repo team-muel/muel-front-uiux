@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 import { ResearchPageLayout } from '../components/sections/ResearchPageLayout';
-import { apiFetch } from '../config';
+import { apiFetch, buildApiUrl } from '../config';
 
 export const EmbeddedApp = () => {
   const [authStatus, setAuthStatus] = useState<string | null>(null);
@@ -19,10 +19,13 @@ export const EmbeddedApp = () => {
 
         if (mounted && (result as any)?.user) {
           const sdkUser = (result as any).user;
+          const avatarUrl = sdkUser.avatar
+            ? `https://cdn.discordapp.com/avatars/${sdkUser.id}/${sdkUser.avatar}.png`
+            : null;
           setUser({
             id: sdkUser.id,
             username: sdkUser.username,
-            avatar: sdkUser.avatar ?? null,
+            avatar: avatarUrl,
           });
         }
 
@@ -62,7 +65,7 @@ export const EmbeddedApp = () => {
       {user && (
         <div style={{ position: 'fixed', bottom: 8, right: 8, background: '#eef', padding: 8, borderRadius: 6 }}>
           <strong>{user.username}</strong>
-          {user.avatar && <img src={user.avatar} alt="avatar" style={{ width: 24, height: 24, marginLeft: 8, borderRadius: 4 }} />}
+          {user.avatar && <img src={buildApiUrl(user.avatar)} alt="avatar" style={{ width: 24, height: 24, marginLeft: 8, borderRadius: 4 }} />}
         </div>
       )}
       {authStatus === 'ok' && !user && <div style={{ display: 'none' }} />}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { apiFetch } from '../config';
+import { ApiError, apiFetchJson } from '../config';
 
 const BENCHMARK_SUMMARY_REFRESH_MS = 30000;
 const BENCHMARK_SUMMARY_REFRESH_BACKOFF_MS = 60000;
@@ -57,29 +57,22 @@ export const useReconnectBenchmarkSummary = ({ visible, nowMs }: UseReconnectBen
 
   const refreshSummary = useCallback(async () => {
     try {
-      const response = await apiFetch('/api/benchmark/summary');
-      if (response.status === 401 || response.status === 403) {
-        setErrorReason('FORBIDDEN');
-        refreshDelayRef.current = BENCHMARK_SUMMARY_REFRESH_BACKOFF_MS;
-        setRefreshDelayMs(BENCHMARK_SUMMARY_REFRESH_BACKOFF_MS);
-        return false;
-      }
-
-      if (!response.ok) {
-        setErrorReason(getSyncErrorReason(response.status));
-        refreshDelayRef.current = BENCHMARK_SUMMARY_REFRESH_BACKOFF_MS;
-        setRefreshDelayMs(BENCHMARK_SUMMARY_REFRESH_BACKOFF_MS);
-        return false;
-      }
-
-      const payload = (await response.json()) as BenchmarkSummaryResponse;
+      const payload = await apiFetchJson<BenchmarkSummaryResponse>('/api/benchmark/summary');
       setSummary(payload.reconnect || null);
       setErrorReason(null);
       refreshDelayRef.current = BENCHMARK_SUMMARY_REFRESH_MS;
       setRefreshDelayMs(BENCHMARK_SUMMARY_REFRESH_MS);
       return true;
-    } catch {
-      setErrorReason('NETWORK');
+    } catch (error) {
+      if (error instanceof ApiError) {
+        if (error.status === 401 || error.status === 403) {
+          setErrorReason('FORBIDDEN');
+        } else {
+          setErrorReason(getSyncErrorReason(error.status));
+        }
+      } else {
+        setErrorReason('NETWORK');
+      }
       refreshDelayRef.current = BENCHMARK_SUMMARY_REFRESH_BACKOFF_MS;
       setRefreshDelayMs(BENCHMARK_SUMMARY_REFRESH_BACKOFF_MS);
       return false;

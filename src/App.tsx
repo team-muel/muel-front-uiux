@@ -1,6 +1,6 @@
 ﻿import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
-import { apiFetch } from './config';
+import { ApiError, apiFetch, apiFetchJson } from './config';
 import { Dashboard, EmbeddedApp, StudioReference, SupportCenter } from './pages';
 import { applySurfaceMode, getStoredSurfaceMode } from './surfaceMode';
 import { SurfaceCard } from './components/ui/SurfaceCard';
@@ -14,6 +14,11 @@ interface User {
   username: string;
   avatar?: string;
 }
+
+type AuthMeResponse = {
+  user: User;
+  csrfToken?: string | null;
+};
 
 const RouteBenchmarkTracker = () => {
   const location = useLocation();
@@ -36,14 +41,12 @@ export default function App() {
 
   const checkAuth = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/auth/me');
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-      } else {
+      const data = await apiFetchJson<AuthMeResponse>('/api/auth/me');
+      setUser(data.user);
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
         setUser(null);
       }
-    } catch (err) {
       setUser(null);
     } finally {
       setAuthLoading(false);

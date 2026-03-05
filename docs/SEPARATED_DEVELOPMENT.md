@@ -12,6 +12,7 @@ npm run setup:all
 ```
 
 이 명령은 다음을 수행합니다.
+
 - 서브모듈 초기화/동기화
 - 프론트 의존성 설치
 - 백엔드 의존성 설치
@@ -19,16 +20,19 @@ npm run setup:all
 ## 로컬 개발
 
 ### 1) 프론트 단독
+
 ```bash
 npm run dev
 ```
 
 ### 2) 백엔드 단독
+
 ```bash
 npm run dev:server
 ```
 
 ### 3) 동시 실행
+
 ```bash
 npm run dev:full
 ```
@@ -39,6 +43,7 @@ npm run dev:full
 - 백엔드 예시: `moved-bot-repo/.env.backend.example`
 
 권장 로컬 구성
+
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:3000`
 - `VITE_DEV_API_TARGET=http://localhost:3000`
