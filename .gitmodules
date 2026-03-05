@@ -1,0 +1,4 @@
+[submodule "moved-bot-repo"]
+	path = moved-bot-repo
+	url = https://github.com/team-muel/discord-news-bot.git
+	branch = moved/backend

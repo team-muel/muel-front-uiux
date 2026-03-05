@@ -8,6 +8,33 @@ This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/2ac797fc-25e2-4c9c-9338-34844a854cbe
 
+## Frontend/Backend 분리 운영 (Canonical)
+
+이 프로젝트는 **프론트엔드 저장소**이며, 백엔드는 `moved-bot-repo` 서브모듈로 연결됩니다.
+
+- Frontend Repo: `team-muel/muel-front-uiux`
+- Backend Repo: `team-muel/discord-news-bot`
+- Submodule Path: `moved-bot-repo`
+
+### 빠른 시작
+
+1. 전체 초기화
+   - `npm run setup:all`
+2. 동시 개발 실행
+   - `npm run dev:full`
+3. 타입 검증
+   - `npm run lint`
+   - `npm run lint:backend`
+
+### 환경변수 템플릿
+
+- Frontend: `.env.frontend.example`
+- Backend: `moved-bot-repo/.env.backend.example`
+
+### 분리 개발 상세 가이드
+
+- [docs/SEPARATED_DEVELOPMENT.md](docs/SEPARATED_DEVELOPMENT.md)
+
 ## Run Locally
 
 **Prerequisites:** Node.js

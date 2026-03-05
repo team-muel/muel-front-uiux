@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "setup:all": "git submodule update --init --recursive && npm install && npm --prefix moved-bot-repo install",
+    "sync:backend": "git submodule update --remote --merge moved-bot-repo",
     "dev:server": "npm --prefix moved-bot-repo run dev",
     "dev:bot": "npm --prefix moved-bot-repo run start:bot",
     "start:server": "npm --prefix moved-bot-repo run start:server",
