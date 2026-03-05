@@ -34,6 +34,7 @@ View your app in AI Studio: https://ai.studio/apps/2ac797fc-25e2-4c9c-9338-34844
 ### 분리 개발 상세 가이드
 
 - [docs/SEPARATED_DEVELOPMENT.md](docs/SEPARATED_DEVELOPMENT.md)
+- [docs/DEPLOY_VERCEL_RENDER.md](docs/DEPLOY_VERCEL_RENDER.md)
 
 ## Run Locally
 
