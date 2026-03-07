@@ -1,19 +1,19 @@
-import { motion } from 'motion/react';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  PolarAngleAxis,
+  PolarGrid,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { SurfaceCard } from './ui/SurfaceCard';
-import { SECTION_MOTION_TOKENS } from '../config/experienceTokens';
 
 type RadarMetric = { label: string; value: number };
-
-const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
-
-const radarPoint = (index: number, total: number, radius: number, center: number, ratio = 1) => {
-  const angle = -Math.PI / 2 + (index / total) * Math.PI * 2;
-  const r = radius * ratio;
-  return {
-    x: center + Math.cos(angle) * r,
-    y: center + Math.sin(angle) * r,
-  };
-};
 
 interface RadarCardProps {
   title: string;
@@ -22,15 +22,10 @@ interface RadarCardProps {
 }
 
 export const RadarResearchCard = ({ title, subtitle, metrics }: RadarCardProps) => {
-  const center = 110;
-  const radius = 74;
-
-  const dataPolygon = metrics
-    .map((metric, idx) => {
-      const point = radarPoint(idx, metrics.length, radius, center, clamp(metric.value) / 100);
-      return `${point.x},${point.y}`;
-    })
-    .join(' ');
+  const radarData = metrics.map((metric) => ({
+    label: metric.label,
+    value: Math.max(0, Math.min(100, metric.value)),
+  }));
 
   return (
     <SurfaceCard hoverable className="research-card research-visual-card muel-interact">
@@ -38,20 +33,22 @@ export const RadarResearchCard = ({ title, subtitle, metrics }: RadarCardProps) 
       <h3 className="research-card-title">{title}</h3>
       <div className="research-radar-layout">
         <div className="hover-media research-radar-shell">
-          <svg viewBox="0 0 220 220" className="research-radar-svg">
-            <motion.polygon
-              initial={{ pathLength: 0, opacity: 0 }}
-              whileInView={{ pathLength: 1, opacity: 1 }}
-              viewport={{ once: true, amount: 0.2 }}
-              transition={{ duration: SECTION_MOTION_TOKENS.timing.drawDuration, ease: SECTION_MOTION_TOKENS.timing.ease }}
-              points={dataPolygon}
-              fill="var(--accent)"
-              fillOpacity="0.16"
-              stroke="var(--accent)"
-              strokeWidth="2"
-            />
-            <circle className="research-radar-core" cx={center} cy={center} r="4" />
-          </svg>
+          <div className="research-radar-responsive">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart data={radarData}>
+                <PolarGrid stroke="rgb(95 99 104 / 18%)" />
+                <PolarAngleAxis dataKey="label" tick={{ fontSize: 10, fill: '#5f6368' }} />
+                <Radar
+                  dataKey="value"
+                  stroke="var(--accent)"
+                  fill="var(--accent)"
+                  fillOpacity={0.2}
+                  strokeWidth={2}
+                  isAnimationActive
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
         <ul className="research-row-list">
           {metrics.map((metric) => (
@@ -74,24 +71,10 @@ interface TrendCardProps {
 }
 
 export const TrendResearchCard = ({ title, subtitle, labels, values }: TrendCardProps) => {
-  const width = 420;
-  const height = 172;
-  const padX = 22;
-  const padY = 16;
-  const chartW = width - padX * 2;
-  const chartH = height - padY * 2;
-
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = Math.max(1, max - min);
-
-  const points = values.map((value, idx) => {
-    const x = padX + (idx / Math.max(1, values.length - 1)) * chartW;
-    const y = height - padY - ((value - min) / range) * chartH;
-    return { x, y };
-  });
-
-  const pointString = points.map((point) => `${point.x},${point.y}`).join(' ');
+  const chartData = labels.map((label, idx) => ({
+    label,
+    value: values[idx],
+  }));
 
   return (
     <SurfaceCard hoverable className="research-card research-visual-card muel-interact">
@@ -99,20 +82,25 @@ export const TrendResearchCard = ({ title, subtitle, labels, values }: TrendCard
       <h3 className="research-card-title">{title}</h3>
 
       <div className="hover-media research-chart-shell research-trend-shell">
-        <svg viewBox={`0 0 ${width} ${height}`} className="research-trend-svg">
-          <motion.polyline
-            initial={{ pathLength: 0 }}
-            whileInView={{ pathLength: 1 }}
-            viewport={{ once: true, amount: 0.2 }}
-            transition={{ duration: SECTION_MOTION_TOKENS.timing.drawDuration, ease: SECTION_MOTION_TOKENS.timing.ease }}
-            points={pointString}
-            fill="none"
-            stroke="var(--accent)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <div className="research-trend-responsive">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
+              <CartesianGrid stroke="rgb(95 99 104 / 12%)" strokeDasharray="4 4" vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#5f6368' }} />
+              <YAxis hide />
+              <Tooltip cursor={{ stroke: 'rgb(62 207 142 / 30%)', strokeWidth: 1 }} />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke="var(--accent)"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, strokeWidth: 0, fill: 'var(--accent)' }}
+                isAnimationActive
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       <div className="research-trend-meta-grid">

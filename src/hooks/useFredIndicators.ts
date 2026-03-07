@@ -6,6 +6,7 @@ import {
   type FredIndicatorValue,
   type FredSeriesConfig,
 } from '../config/fredIndicators';
+import { DATA_POLICY } from '../config/dataPolicy';
 
 type FredObservation = {
   value: string;
@@ -85,6 +86,16 @@ export const useFredIndicators = (): UseFredIndicatorsState => {
     const apiKey = import.meta.env.VITE_FRED_API_KEY as string | undefined;
 
     if (!apiKey) {
+      if (!DATA_POLICY.allowFredIndicatorFallback) {
+        setState({
+          indicators: [],
+          loading: false,
+          source: 'fallback',
+          error: 'VITE_FRED_API_KEY not configured and fallback disabled',
+        });
+        return;
+      }
+
       setState({
         indicators: FRED_FALLBACK_INDICATORS,
         loading: false,
@@ -111,6 +122,16 @@ export const useFredIndicators = (): UseFredIndicatorsState => {
         });
       } catch (error) {
         if (cancelled) {
+          return;
+        }
+
+        if (!DATA_POLICY.allowFredIndicatorFallback) {
+          setState({
+            indicators: [],
+            loading: false,
+            source: 'fallback',
+            error: error instanceof Error ? error.message : 'Unknown FRED error',
+          });
           return;
         }
 

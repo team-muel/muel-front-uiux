@@ -1,6 +1,5 @@
 ﻿
 import { useEffect, useState } from 'react';
-import { DiscordSDK } from '@discord/embedded-app-sdk';
 import { ResearchPageLayout } from '../components/sections/ResearchPageLayout';
 import { apiFetch, buildApiUrl } from '../config';
 
@@ -9,10 +8,17 @@ export const EmbeddedApp = () => {
   const [user, setUser] = useState<{ id: string; username: string; avatar: string | null } | null>(null);
 
   useEffect(() => {
-    const sdk = new DiscordSDK('');
+    const isEmbeddedSurface = window.self !== window.top;
+    if (!isEmbeddedSurface) {
+      setAuthStatus('web_surface');
+      return;
+    }
+
     let mounted = true;
     const doAuthenticate = async () => {
       try {
+        const { DiscordSDK } = await import('@discord/embedded-app-sdk');
+        const sdk = new DiscordSDK('');
         await sdk.ready();
         const result = await sdk.commands.authenticate({});
         const code = (result as any)?.code as string | undefined;

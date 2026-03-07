@@ -1,39 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { researchContent, type ResolvedResearchPreset } from '../../content/researchContent';
+import { useQuantPanelSnapshot } from '../../hooks/useQuantPanelSnapshot';
+import { ROUTES } from '../../config/routes';
+import { BOT_INVITE_URL } from '../../config/sectionNavigation';
 import { PremiumResearchCard, RadarResearchCard, TrendResearchCard } from '../ResearchVisuals';
 import { MuelReveal } from '../ui/MuelReveal';
 import { SurfaceCard } from '../ui/SurfaceCard';
 import { UiButton } from '../ui/UiButton';
-
-interface ResearchStepNavProps {
-  preset: ResolvedResearchPreset;
-  className?: string;
-}
-
-export const ResearchStepNav = ({
-  preset,
-  className = '',
-}: ResearchStepNavProps) => {
-  const researchSteps = Object.values(researchContent.sections);
-  const { ariaLabel, showLabels, showSeparators } = preset.stepNav;
-
-  return (
-    <nav className={`research-step-line ${className}`.trim()} aria-label={ariaLabel}>
-      {researchSteps.map((section, index) => (
-        <span key={section.overline} className="research-step-item mono-data" aria-label={section.title}>
-          <span className="research-step-number">{index + 1}</span>
-          {showLabels ? <span className="studio-step-label">{section.title}</span> : null}
-          {showSeparators && index < researchSteps.length - 1 ? (
-            <span className="research-step-separator" aria-hidden="true">
-              -
-            </span>
-          ) : null}
-        </span>
-      ))}
-    </nav>
-  );
-};
 
 interface ResearchPresetHeroProps {
   preset: ResolvedResearchPreset;
@@ -46,7 +20,6 @@ export const ResearchPresetHero = ({ preset }: ResearchPresetHeroProps) => {
   if (hero.layout === 'embedded') {
     return (
       <section className="io-reveal research-hero-shell research-hero-divider">
-        <ResearchStepNav preset={preset} />
         <p className="chapter-overline">{hero.overline}</p>
         <h1 className="type-h1 research-hero-title">{hero.title}</h1>
         <p className="type-body research-hero-desc">{hero.description}</p>
@@ -63,8 +36,6 @@ export const ResearchPresetHero = ({ preset }: ResearchPresetHeroProps) => {
     <section className="io-reveal research-hero-shell research-hero-divider studio-hero-shell">
       <div className="studio-hero-grid">
         <div>
-          <ResearchStepNav preset={preset} className="studio-step-line" />
-
           <p className="chapter-overline">{hero.overline}</p>
           <h1 className="type-h1 research-hero-title">{hero.title}</h1>
           <p className="type-body research-hero-desc">{hero.description}</p>
@@ -107,6 +78,7 @@ interface ResearchCoreSectionsProps {
 }
 
 export const ResearchCoreSections = ({ preset }: ResearchCoreSectionsProps) => {
+  const quantState = useQuantPanelSnapshot();
   const connectors = preset.data.connectors;
   const workbench = preset.data.workbench;
   const radarMetrics = preset.data.radar.metrics;
@@ -119,6 +91,39 @@ export const ResearchCoreSections = ({ preset }: ResearchCoreSectionsProps) => {
 
   return (
     <>
+      <MuelReveal as="section" className="io-reveal section-emphasis-shell" delayMultiplier={0}>
+        <header className="muel-section-head">
+          <p className="chapter-overline">{researchContent.sections.charts.overline}</p>
+          <h2 className="chapter-title">{researchContent.sections.charts.title}</h2>
+          <p className="chapter-desc">{researchContent.sections.charts.description}</p>
+        </header>
+
+        <div className="research-charts-grid">
+          <RadarResearchCard
+            title={radar.title}
+            subtitle={radar.subtitle}
+            metrics={radarMetrics}
+          />
+          <TrendResearchCard
+            title={trend.title}
+            subtitle={trend.subtitle}
+            labels={trendLabels}
+            values={trendValues}
+          />
+        </div>
+
+        <div className="research-premium-wrap">
+          <PremiumResearchCard
+            title={premium.title}
+            subtitle={premium.subtitle}
+            lockLabel={premium.lockLabel}
+            rows={premiumRows}
+          />
+        </div>
+      </MuelReveal>
+
+      <div className="kpay-divider" aria-hidden="true" />
+
       <MuelReveal as="section" className="io-reveal section-emphasis-shell" delayMultiplier={0}>
         <header className="muel-section-head">
           <p className="chapter-overline">{researchContent.sections.connectors.overline}</p>
@@ -179,34 +184,67 @@ export const ResearchCoreSections = ({ preset }: ResearchCoreSectionsProps) => {
       <div className="kpay-divider" aria-hidden="true" />
 
       <MuelReveal as="section" className="io-reveal section-emphasis-shell" delayMultiplier={0}>
-        <header className="muel-section-head">
-          <p className="chapter-overline">{researchContent.sections.charts.overline}</p>
-          <h2 className="chapter-title">{researchContent.sections.charts.title}</h2>
-          <p className="chapter-desc">{researchContent.sections.charts.description}</p>
-        </header>
+        <section className="quant-panel-shell" aria-label="quant panel placeholder">
+          <header className="muel-section-head">
+            <p className="chapter-overline">{researchContent.quantPreview.overline}</p>
+            <h3 className="chapter-title">{researchContent.quantPreview.title}</h3>
+            <p className="chapter-desc">{researchContent.quantPreview.description}</p>
+          </header>
 
-        <div className="research-charts-grid">
-          <RadarResearchCard
-            title={radar.title}
-            subtitle={radar.subtitle}
-            metrics={radarMetrics}
-          />
-          <TrendResearchCard
-            title={trend.title}
-            subtitle={trend.subtitle}
-            labels={trendLabels}
-            values={trendValues}
-          />
-        </div>
+          <div className="research-binding-strip" aria-label="quant source status">
+            <span className={`control-room-status ${quantState.source === 'backend' ? 'status-completed' : 'status-in-progress'}`}>
+              Quant Source: {quantState.source === 'backend' ? 'Backend' : 'Fallback'}
+            </span>
+            {quantState.error ? <p className="research-binding-note">{quantState.error}</p> : null}
+          </div>
 
-        <div className="research-premium-wrap">
-          <PremiumResearchCard
-            title={premium.title}
-            subtitle={premium.subtitle}
-            lockLabel={premium.lockLabel}
-            rows={premiumRows}
-          />
-        </div>
+          <div className="feature-reboot-grid research-triple-grid">
+            {quantState.snapshot.metrics.map((metric) => (
+              <SurfaceCard key={metric.id} hoverable className="feature-reboot-card research-feature-card muel-interact">
+                <p className="feature-reboot-kicker">{metric.id.toUpperCase()}</p>
+                <h4 className="feature-reboot-title">{metric.label}</h4>
+                <p className="feature-reboot-desc">
+                  {metric.value.toFixed(2)} {metric.unit} · change {metric.change >= 0 ? '+' : ''}
+                  {metric.change.toFixed(2)}
+                </p>
+              </SurfaceCard>
+            ))}
+          </div>
+
+          {!quantState.snapshot.metrics.length ? (
+            <p className="research-binding-note">{researchContent.quantPreview.noDataMessage}</p>
+          ) : null}
+        </section>
+
+        <div className="kpay-divider" aria-hidden="true" />
+
+        <section className="quant-panel-shell" aria-label="contact support section">
+          <header className="muel-section-head">
+            <p className="chapter-overline">{researchContent.contact.overline}</p>
+            <h3 className="chapter-title">{researchContent.contact.title}</h3>
+            <p className="chapter-desc">{researchContent.contact.description}</p>
+          </header>
+
+          <div className="feature-reboot-grid research-triple-grid">
+            {researchContent.contact.channels.map((channel) => (
+              <SurfaceCard key={channel.id} hoverable className="feature-reboot-card research-feature-card muel-interact">
+                <p className="feature-reboot-kicker">CHANNEL</p>
+                <h4 className="feature-reboot-title">{channel.label}</h4>
+                <p className="feature-reboot-desc">{channel.detail}</p>
+              </SurfaceCard>
+            ))}
+          </div>
+
+          <div className="research-contact-notes">
+            <p className="research-binding-note">{researchContent.contact.responsePolicy}</p>
+            <p className="research-binding-note">{researchContent.contact.escalationNote}</p>
+          </div>
+
+          <div className="hero-cta-stack">
+            <UiButton to={ROUTES.support} variant="solid" size="lg">{researchContent.contact.supportCta}</UiButton>
+            <UiButton href={BOT_INVITE_URL} variant="outline" size="md">{researchContent.contact.discordCta}</UiButton>
+          </div>
+        </section>
       </MuelReveal>
     </>
   );

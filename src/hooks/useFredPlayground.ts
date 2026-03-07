@@ -8,6 +8,7 @@ import {
   type FredPlaygroundRange,
   type FredSeriesData,
 } from '../config/fredPlayground';
+import { DATA_POLICY } from '../config/dataPolicy';
 
 type UseFredPlaygroundState = {
   payload: FredPlaygroundPayload;
@@ -114,12 +115,32 @@ const buildFallbackPayload = (selectedIds: string[], range: FredPlaygroundRange,
   };
 };
 
+const buildUnavailablePayload = (message: string): UseFredPlaygroundState => ({
+  payload: {
+    source: 'backend',
+    catalog: [],
+    series: [],
+  },
+  loading: false,
+  error: message,
+});
+
 export const useFredPlayground = (selectedIds: string[], range: FredPlaygroundRange) => {
-  const [state, setState] = useState<UseFredPlaygroundState>(() => buildFallbackPayload(selectedIds, range));
+  const [state, setState] = useState<UseFredPlaygroundState>(() => {
+    if (DATA_POLICY.allowFredPlaygroundFallback) {
+      return buildFallbackPayload(selectedIds, range);
+    }
+
+    return buildUnavailablePayload('Waiting for backend FRED stream');
+  });
 
   useEffect(() => {
     if (!selectedIds.length) {
-      setState(buildFallbackPayload([], range, 'At least one series must be selected'));
+      if (DATA_POLICY.allowFredPlaygroundFallback) {
+        setState(buildFallbackPayload([], range, 'At least one series must be selected'));
+      } else {
+        setState(buildUnavailablePayload('At least one series must be selected'));
+      }
       return;
     }
 
@@ -154,11 +175,13 @@ export const useFredPlayground = (selectedIds: string[], range: FredPlaygroundRa
         }
 
         setState(
-          buildFallbackPayload(
-            selectedIds,
-            range,
-            error instanceof Error ? error.message : 'FRED backend unavailable',
-          ),
+          DATA_POLICY.allowFredPlaygroundFallback
+            ? buildFallbackPayload(
+                selectedIds,
+                range,
+                error instanceof Error ? error.message : 'FRED backend unavailable',
+              )
+            : buildUnavailablePayload(error instanceof Error ? error.message : 'FRED backend unavailable'),
         );
       }
     };

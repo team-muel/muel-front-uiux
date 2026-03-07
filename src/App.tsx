@@ -1,7 +1,7 @@
 ﻿import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useLayoutEffect } from 'react';
 import { ApiError, apiFetch, apiFetchJson } from './config';
-import { Dashboard, EmbeddedApp, StudioReference, SupportCenter } from './pages';
+import { Dashboard, EmbeddedApp, Playground, StudioReference, SupportCenter } from './pages';
 import { applySurfaceMode, getStoredSurfaceMode } from './surfaceMode';
 import { SurfaceCard } from './components/ui/SurfaceCard';
 import { ROUTES } from './config/routes';
@@ -28,6 +28,33 @@ const RouteBenchmarkTracker = () => {
       route: location.pathname,
     });
   }, [location.pathname]);
+
+  return null;
+};
+
+const RouteScrollReset = () => {
+  const location = useLocation();
+
+  useLayoutEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+
+    const reset = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
+    reset();
+    const frame = requestAnimationFrame(reset);
+    const timer = window.setTimeout(reset, 0);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [location.key, location.pathname, location.search]);
 
   return null;
 };
@@ -234,8 +261,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <RouteBenchmarkTracker />
+      <RouteScrollReset />
       <Routes>
         <Route path={ROUTES.home} element={<Dashboard user={user} onLogout={handleLogout} />} />
+        <Route path={ROUTES.playground} element={<Playground />} />
         <Route path={ROUTES.inApp} element={<EmbeddedApp />} />
         <Route path={ROUTES.embedded} element={<Navigate to={ROUTES.inApp} replace />} />
         <Route path={ROUTES.dashboard} element={<Navigate to={ROUTES.home} replace />} />

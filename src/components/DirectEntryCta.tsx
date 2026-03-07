@@ -1,18 +1,19 @@
 ﻿import React from 'react';
 import { ArrowUpRight } from 'lucide-react';
-import { ROUTES } from '../config/routes';
+import { ROUTES, type AppRoute } from '../config/routes';
 import { BENCHMARK_EVENTS } from '../config/benchmarkEvents';
 import { commonText } from '../content/commonText';
 import { UiButton } from './ui/UiButton';
 
 interface DirectEntryRoute {
-  to: typeof ROUTES.inApp | typeof ROUTES.home;
+  to: AppRoute;
   label: string;
 }
 
 interface DirectEntryCtaProps {
   routes?: DirectEntryRoute[];
   className?: string;
+  helperText?: string;
 }
 
 const defaultRoutes: DirectEntryRoute[] = [
@@ -23,11 +24,12 @@ const defaultRoutes: DirectEntryRoute[] = [
 export const DirectEntryCta: React.FC<DirectEntryCtaProps> = ({
   routes = defaultRoutes,
   className = '',
+  helperText = commonText.helper.directEntry,
 }) => {
   return (
     <div className={`direct-entry-shell ${className}`.trim()}>
       <div className="direct-entry-row">
-        <p className="type-body direct-entry-text">{commonText.helper.directEntry}</p>
+        <p className="type-body direct-entry-text">{helperText}</p>
         <div className="direct-entry-actions">
           {routes.map((route) => (
             <UiButton

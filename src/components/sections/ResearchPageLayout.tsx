@@ -8,6 +8,7 @@ import { useMuelMotion } from '../../hooks/useMuelMotion';
 import { getMuelMotionCssVars } from '../../lib/getMuelMotionCssVars';
 import { ResearchCoreSections, ResearchPresetHero } from './ResearchSharedSections';
 import { ResearchPresetHistoryPanel } from './ResearchPresetHistoryPanel';
+import { ControlRoomRoadmap } from './ControlRoomRoadmap';
 import { apiFetch } from '../../config';
 import { getResolvedResearchPreset, isResearchPresetKey, type ResearchPresetKey, type ResolvedResearchPreset } from '../../content/researchContent';
 
@@ -74,6 +75,7 @@ export const ResearchPageLayout = ({
       <main className={resolvedMainClassName}>
         <ResearchPresetHero preset={preset} />
         <ResearchCoreSections preset={preset} />
+        <ControlRoomRoadmap compact />
         {preset.key === 'studio' ? (
           <ResearchPresetHistoryPanel
             presetKey={preset.key}

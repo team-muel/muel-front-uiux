@@ -32,6 +32,9 @@ type TooltipProps = {
 
 const SERIES_COLORS = ['#3ecf8e', '#2f7cf6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 const FIND_RESULT_LIMIT = 100;
+const CHART_GRID_STROKE = 'rgb(95 99 104 / 13%)';
+const CHART_TICK_COLOR = 'var(--color-text-muted)';
+const CHART_CURSOR_STROKE = 'rgb(62 207 142 / 35%)';
 
 const getSearchScore = (item: FredCatalogItem, keyword: string) => {
   if (!keyword) {
@@ -138,6 +141,11 @@ export const FinanceChartPlayground = ({ title, description }: FinanceChartPlayg
       return [];
     }
 
+    const pointsBySeries = safeSeries.map((series) => ({
+      id: series.id,
+      pointsByDate: new Map(series.points.map((point) => [point.date, point.value] as const)),
+    }));
+
     const dateSet = new Set<string>();
     safeSeries.forEach((series) => {
       series.points.forEach((point) => {
@@ -150,9 +158,8 @@ export const FinanceChartPlayground = ({ title, description }: FinanceChartPlayg
     return sortedDates.map((date) => {
       const row: CombinedPoint = { date };
 
-      safeSeries.forEach((series) => {
-        const point = series.points.find((item) => item.date === date);
-        row[series.id] = point ? point.value : null;
+      pointsBySeries.forEach((series) => {
+        row[series.id] = series.pointsByDate.get(date) ?? null;
       });
 
       return row;
@@ -291,13 +298,13 @@ export const FinanceChartPlayground = ({ title, description }: FinanceChartPlayg
       <div className="finance-chart-canvas finance-playground-chart" role="img" aria-label="fred chart">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 18, right: 18, bottom: 8, left: 8 }}>
-            <CartesianGrid stroke="rgb(95 99 104 / 13%)" strokeDasharray="4 4" vertical={false} />
-            <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#5f6368' }} dy={7} />
+            <CartesianGrid stroke={CHART_GRID_STROKE} strokeDasharray="4 4" vertical={false} />
+            <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: CHART_TICK_COLOR }} dy={7} />
             <YAxis hide />
-            <Tooltip content={<PlaygroundTooltip seriesById={seriesById} />} cursor={{ stroke: 'rgb(62 207 142 / 35%)', strokeWidth: 1 }} />
+            <Tooltip content={<PlaygroundTooltip seriesById={seriesById} />} cursor={{ stroke: CHART_CURSOR_STROKE, strokeWidth: 1 }} />
             <Legend />
 
-            {payload.series.map((series, index) => {
+            {safeSeries.map((series, index) => {
               const color = SERIES_COLORS[index % SERIES_COLORS.length];
               return (
                 <Line
@@ -448,10 +455,7 @@ export const FinanceChartPlayground = ({ title, description }: FinanceChartPlayg
         </article>
       </section>
 
-      <p className="finance-playground-source-note">
-        Source: {payload.source === 'backend' ? 'Backend FRED stream' : 'Fallback sample'}
-        {error ? `, note: ${error}` : ''}
-      </p>
+      <p className="finance-playground-source-note">Source: {payload.source === 'backend' ? 'Backend FRED stream' : 'Fallback sample'}</p>
       {loading ? <p className="finance-playground-loading">Loading series...</p> : null}
     </div>
   );
