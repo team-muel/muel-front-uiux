@@ -1,6 +1,6 @@
 ﻿import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useState, useEffect, useCallback, useLayoutEffect } from 'react';
-import { ApiError, apiFetch, apiFetchJson } from './config';
+import { API_BASE, ApiError, apiFetch, apiFetchJson } from './config';
 import { Dashboard, EmbeddedApp, Playground, QuantCenter, StudioReference, SupportCenter } from './pages';
 import { applySurfaceMode, getStoredSurfaceMode } from './surfaceMode';
 import { SurfaceCard } from './components/ui/SurfaceCard';
@@ -24,6 +24,36 @@ type AuthMeResponse = {
 
 type AuthUrlResponse = {
   url: string;
+};
+
+const resolveOAuthCallbackUri = () => {
+  const fallback = `${window.location.origin}/auth/callback`;
+  if (!API_BASE) {
+    return fallback;
+  }
+
+  try {
+    const apiBaseUrl = new URL(API_BASE, window.location.origin);
+    return `${apiBaseUrl.origin}/auth/callback`;
+  } catch {
+    return fallback;
+  }
+};
+
+const resolveOAuthMessageOrigins = () => {
+  const origins = new Set<string>([window.location.origin]);
+  if (!API_BASE) {
+    return origins;
+  }
+
+  try {
+    const apiBaseUrl = new URL(API_BASE, window.location.origin);
+    origins.add(apiBaseUrl.origin);
+  } catch {
+    // Ignore malformed API base and keep current origin only.
+  }
+
+  return origins;
 };
 
 const RouteBenchmarkTracker = () => {
@@ -108,7 +138,7 @@ export default function App() {
 
   const handleLogin = useCallback(async () => {
     try {
-      const redirectUri = `${window.location.origin}/auth/callback`;
+      const redirectUri = resolveOAuthCallbackUri();
       const query = new URLSearchParams({ redirectUri });
       const data = await apiFetchJson<AuthUrlResponse>(`/api/auth/url?${query.toString()}`);
 
@@ -161,9 +191,10 @@ export default function App() {
 
   useEffect(() => {
     checkAuth();
+    const allowedOrigins = resolveOAuthMessageOrigins();
     
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) {
+      if (!allowedOrigins.has(event.origin)) {
         return;
       }
 
