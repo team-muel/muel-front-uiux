@@ -737,6 +737,88 @@ body {
 	gap: 10px;
 }
 
+.quant-console-grid {
+	grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.quant-console-card {
+	display: grid;
+	gap: 12px;
+}
+
+.quant-console-form-grid {
+	display: grid;
+	grid-template-columns: repeat(1, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.quant-console-field {
+	display: grid;
+	gap: 6px;
+}
+
+.quant-console-field span {
+	font-size: 0.75rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: color-mix(in srgb, var(--kpay-text) 65%, transparent);
+}
+
+.quant-console-field input,
+.quant-console-field select,
+.quant-console-field textarea {
+	width: 100%;
+	border-radius: 10px;
+	border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+	background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+	padding: 9px 11px;
+	font: inherit;
+	color: var(--color-text);
+}
+
+.quant-console-field textarea {
+	resize: vertical;
+	min-height: 120px;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+	font-size: 0.82rem;
+}
+
+.quant-console-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.quant-console-json {
+	margin: 0;
+	border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+	background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+	border-radius: 12px;
+	padding: 12px;
+	overflow: auto;
+	max-height: 280px;
+	font-size: 0.8rem;
+	line-height: 1.48;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.quant-runner-head {
+	display: grid;
+	grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+	gap: 10px;
+}
+
+.quant-console-field-path {
+	min-width: 0;
+}
+
+.quant-metric-card {
+	padding: 12px;
+	border-radius: 12px;
+	border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+	background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+}
+
 .research-contact-notes {
 	display: grid;
 	gap: 4px;
@@ -753,6 +835,14 @@ body {
 	.feature-reboot-grid {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 1.35rem;
+	}
+
+	.quant-console-grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+
+	.quant-console-form-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }
 

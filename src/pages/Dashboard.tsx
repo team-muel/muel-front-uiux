@@ -19,7 +19,7 @@ import { useScrollProgress } from '../hooks/useScrollProgress';
 import { getMuelMotionCssVars } from '../lib/getMuelMotionCssVars';
 
 interface DashboardProps {
-  user?: { id: string; username: string; avatar?: string | null } | null;
+  user?: { id: string; username: string; avatar?: string | null; isPresetAdmin?: boolean } | null;
   onLogout?: () => void;
   content?: HubPageContent;
 }
@@ -88,7 +88,7 @@ const MetricCounter = ({ value, suffix, label, description }: MetricCounterProps
   );
 };
 
-export const Dashboard = ({ user: _user, onLogout: _onLogout, content = dashboardContent }: DashboardProps) => {
+export const Dashboard = ({ user, onLogout: _onLogout, content = dashboardContent }: DashboardProps) => {
   const { tokens } = useMuelMotion();
   const heroInviteRef = useRef<HTMLDivElement | null>(null);
   const [heroTitleTop, heroTitleBottom] = content.hero.title.split(' / ');
@@ -115,7 +115,7 @@ export const Dashboard = ({ user: _user, onLogout: _onLogout, content = dashboar
 
   return (
     <div className="surface-page surface-bridge hud-grid research-page-shell" style={motionCssVars}>
-      <AppHeader fixed animated={false} actions={<TopSectionSwitcher />} />
+      <AppHeader fixed animated={false} actions={<TopSectionSwitcher isAuthenticated={Boolean(user)} isPresetAdmin={Boolean(user?.isPresetAdmin)} />} />
       <ScrollProgressBar progress={scrollProgress} />
 
       <main id="dashboard-main" className="section-wrap section-v-80 section-cluster dashboard-kpay-flow dashboard-main-shell">

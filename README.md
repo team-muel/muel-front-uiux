@@ -71,6 +71,36 @@ If `VITE_API_BASE` is not provided the client will use relative paths, which
 works for local development when the server and frontend are on the same
 origin.
 
+Optional backend endpoint flags (default `false`):
+
+```bash
+VITE_ENABLE_FRED_PLAYGROUND_BACKEND=true
+VITE_ENABLE_QUANT_PANEL_BACKEND=true
+```
+
+Use these only when your backend actually exposes `/api/fred/playground` and
+`/api/quant/panel`. Otherwise the frontend stays on fallback data by design.
+
+### Admin Registration Flow (Quant Access)
+
+The frontend quant route (`/quant`) is admin-only. Admin detection is aligned to
+backend mode:
+
+- `moved/backend` style backend:
+  - admin source: Supabase `user_roles` table (`role='admin'`)
+  - frontend reads `isPresetAdmin` from `/api/auth/me`
+- latest `origin/main` style backend:
+  - admin source: `RESEARCH_PRESET_ADMIN_USER_IDS` + `ADMIN_ALLOWLIST_TABLE`
+  - frontend probes `/api/trading/runtime` to infer admin capability when
+    `/api/auth/me` does not expose `isPresetAdmin`
+
+Quant console verification points:
+
+- start/stop: `/api/trading/runtime/resume|pause` (legacy fallback supported)
+- parameter update: `/api/trading/strategy` (legacy fallback supported)
+- panel snapshot: `/api/quant/panel`
+- operation log view: action log + `/api/benchmark/summary` + `/api/trades`
+
 ### FRED Macro Indicators Configuration
 
 The dashboard macro panel can load live U.S. macro indicators from FRED.

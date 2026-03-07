@@ -1,7 +1,7 @@
 ﻿import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useState, useEffect, useCallback, useLayoutEffect } from 'react';
 import { ApiError, apiFetch, apiFetchJson } from './config';
-import { Dashboard, EmbeddedApp, Playground, StudioReference, SupportCenter } from './pages';
+import { Dashboard, EmbeddedApp, Playground, QuantCenter, StudioReference, SupportCenter } from './pages';
 import { applySurfaceMode, getStoredSurfaceMode } from './surfaceMode';
 import { SurfaceCard } from './components/ui/SurfaceCard';
 import { ROUTES } from './config/routes';
@@ -12,11 +12,13 @@ import { useBenchmarkSync } from './hooks/useBenchmarkSync';
 interface User {
   id: string;
   username: string;
-  avatar?: string;
+  avatar?: string | null;
+  isPresetAdmin?: boolean;
 }
 
 type AuthMeResponse = {
   user: User;
+  isPresetAdmin?: boolean;
   csrfToken?: string | null;
 };
 
@@ -66,10 +68,30 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [bootProgress, setBootProgress] = useState(8);
 
+  const probePresetAdmin = useCallback(async () => {
+    try {
+      const response = await apiFetch('/api/trading/runtime');
+      if (response.status === 200) {
+        return true;
+      }
+      if (response.status === 401 || response.status === 403 || response.status === 404) {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+
+    return false;
+  }, []);
+
   const checkAuth = useCallback(async () => {
     try {
       const data = await apiFetchJson<AuthMeResponse>('/api/auth/me');
-      setUser(data.user);
+      const inferredAdmin = typeof data.isPresetAdmin === 'boolean' ? data.isPresetAdmin : await probePresetAdmin();
+      setUser({
+        ...data.user,
+        isPresetAdmin: inferredAdmin,
+      });
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
         setUser(null);
@@ -78,7 +100,7 @@ export default function App() {
     } finally {
       setAuthLoading(false);
     }
-  }, []);
+  }, [probePresetAdmin]);
 
   const handleLogout = useCallback(async () => {
     await apiFetch('/api/auth/logout', { method: 'POST' });
@@ -264,12 +286,16 @@ export default function App() {
       <RouteScrollReset />
       <Routes>
         <Route path={ROUTES.home} element={<Dashboard user={user} onLogout={handleLogout} />} />
-        <Route path={ROUTES.playground} element={<Playground />} />
-        <Route path={ROUTES.inApp} element={<EmbeddedApp />} />
+        <Route path={ROUTES.playground} element={<Playground user={user} />} />
+        <Route path={ROUTES.inApp} element={<EmbeddedApp user={user} />} />
+        <Route
+          path={ROUTES.quant}
+          element={user?.isPresetAdmin ? <QuantCenter user={user} /> : <Navigate to={ROUTES.home} replace />}
+        />
         <Route path={ROUTES.embedded} element={<Navigate to={ROUTES.inApp} replace />} />
         <Route path={ROUTES.dashboard} element={<Navigate to={ROUTES.home} replace />} />
-        <Route path={ROUTES.studio} element={<StudioReference />} />
-        <Route path={ROUTES.support} element={<SupportCenter />} />
+        <Route path={ROUTES.studio} element={<StudioReference user={user} />} />
+        <Route path={ROUTES.support} element={<SupportCenter user={user} />} />
         <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
       </Routes>
     </BrowserRouter>

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { researchContent, type ResolvedResearchPreset } from '../../content/researchContent';
-import { useQuantPanelSnapshot } from '../../hooks/useQuantPanelSnapshot';
 import { ROUTES } from '../../config/routes';
 import { BOT_INVITE_URL } from '../../config/sectionNavigation';
 import { PremiumResearchCard, RadarResearchCard, TrendResearchCard } from '../ResearchVisuals';
@@ -78,7 +77,6 @@ interface ResearchCoreSectionsProps {
 }
 
 export const ResearchCoreSections = ({ preset }: ResearchCoreSectionsProps) => {
-  const quantState = useQuantPanelSnapshot();
   const connectors = preset.data.connectors;
   const workbench = preset.data.workbench;
   const radarMetrics = preset.data.radar.metrics;
@@ -184,40 +182,6 @@ export const ResearchCoreSections = ({ preset }: ResearchCoreSectionsProps) => {
       <div className="kpay-divider" aria-hidden="true" />
 
       <MuelReveal as="section" className="io-reveal section-emphasis-shell" delayMultiplier={0}>
-        <section className="quant-panel-shell" aria-label="quant panel placeholder">
-          <header className="muel-section-head">
-            <p className="chapter-overline">{researchContent.quantPreview.overline}</p>
-            <h3 className="chapter-title">{researchContent.quantPreview.title}</h3>
-            <p className="chapter-desc">{researchContent.quantPreview.description}</p>
-          </header>
-
-          <div className="research-binding-strip" aria-label="quant source status">
-            <span className={`control-room-status ${quantState.source === 'backend' ? 'status-completed' : 'status-in-progress'}`}>
-              Quant Source: {quantState.source === 'backend' ? 'Backend' : 'Fallback'}
-            </span>
-            {quantState.error ? <p className="research-binding-note">{quantState.error}</p> : null}
-          </div>
-
-          <div className="feature-reboot-grid research-triple-grid">
-            {quantState.snapshot.metrics.map((metric) => (
-              <SurfaceCard key={metric.id} hoverable className="feature-reboot-card research-feature-card muel-interact">
-                <p className="feature-reboot-kicker">{metric.id.toUpperCase()}</p>
-                <h4 className="feature-reboot-title">{metric.label}</h4>
-                <p className="feature-reboot-desc">
-                  {metric.value.toFixed(2)} {metric.unit} · change {metric.change >= 0 ? '+' : ''}
-                  {metric.change.toFixed(2)}
-                </p>
-              </SurfaceCard>
-            ))}
-          </div>
-
-          {!quantState.snapshot.metrics.length ? (
-            <p className="research-binding-note">{researchContent.quantPreview.noDataMessage}</p>
-          ) : null}
-        </section>
-
-        <div className="kpay-divider" aria-hidden="true" />
-
         <section className="quant-panel-shell" aria-label="contact support section">
           <header className="muel-section-head">
             <p className="chapter-overline">{researchContent.contact.overline}</p>

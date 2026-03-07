@@ -6,6 +6,7 @@ export const ROUTES = {
   embedded: '/embedded',
   dashboard: '/dashboard',
   playground: '/playground',
+  quant: '/quant',
 } as const;
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];

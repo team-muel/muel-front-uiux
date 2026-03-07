@@ -3,6 +3,13 @@
 Frontend target: `src/hooks/useFredPlayground.ts`
 Endpoint: `GET /api/fred/playground?ids=UNRATE,CPIAUCSL,FEDFUNDS&range=3Y`
 
+## Current Backend Status
+
+- `moved-bot-repo` does not currently expose `/api/fred/playground`.
+- Frontend treats this endpoint as optional and only calls it when
+  `VITE_ENABLE_FRED_PLAYGROUND_BACKEND=true`.
+- Default local policy is disabled, and UI uses fallback series.
+
 ## Query
 
 - `ids` (required): comma-separated FRED series IDs

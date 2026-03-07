@@ -6,11 +6,26 @@ import { BENCHMARK_EVENTS } from '../config/benchmarkEvents';
 interface TopSectionSwitcherProps {
   compact?: boolean;
   includeExternal?: boolean;
+  isAuthenticated?: boolean;
+  isPresetAdmin?: boolean;
 }
 
-export const TopSectionSwitcher: React.FC<TopSectionSwitcherProps> = ({ compact = true, includeExternal = true }) => {
+export const TopSectionSwitcher: React.FC<TopSectionSwitcherProps> = ({
+  compact = true,
+  includeExternal = true,
+  isAuthenticated = false,
+  isPresetAdmin = false,
+}) => {
   const location = useLocation();
-  const items = includeExternal ? sectionNavigationItems : sectionNavigationItems.filter((item) => !item.external);
+  const items = (includeExternal ? sectionNavigationItems : sectionNavigationItems.filter((item) => !item.external)).filter((item) => {
+    if (item.access === 'public') {
+      return true;
+    }
+    if (item.access === 'authenticated') {
+      return isAuthenticated;
+    }
+    return isPresetAdmin;
+  });
 
   return (
     <div className="kpay-topbar-nav" aria-label="top section switcher">

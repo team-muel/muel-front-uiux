@@ -7,6 +7,7 @@ export type SectionNavItem = {
   to: string;
   icon: LucideIcon;
   external?: boolean;
+  access: 'public' | 'authenticated' | 'admin';
 };
 
 export { BOT_INVITE_URL };
@@ -19,4 +20,5 @@ export const sectionNavigationItems: SectionNavItem[] = getIaNodes({ includeExte
     to: item.to,
     icon: item.icon,
     external: item.external,
+    access: item.access,
   }));

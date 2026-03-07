@@ -12,13 +12,17 @@ import { getMuelMotionCssVars } from '../lib/getMuelMotionCssVars';
 import { ROUTES } from '../config/routes';
 import { supportContent } from '../content/supportContent';
 
-export const SupportCenter: React.FC = () => {
+interface SupportCenterProps {
+  user?: { id: string; username: string; avatar?: string | null; isPresetAdmin?: boolean } | null;
+}
+
+export const SupportCenter: React.FC<SupportCenterProps> = ({ user }) => {
   const { tokens } = useMuelMotion();
   const motionCssVars = getMuelMotionCssVars(tokens) as CSSProperties;
 
   return (
     <div className="surface-page surface-bridge hud-grid research-page-shell" style={motionCssVars}>
-      <AppHeader fixed animated={false} actions={<TopSectionSwitcher />} />
+      <AppHeader fixed animated={false} actions={<TopSectionSwitcher isAuthenticated={Boolean(user)} isPresetAdmin={Boolean(user?.isPresetAdmin)} />} />
 
       <main className="section-wrap section-v-80 section-cluster dashboard-kpay-flow dashboard-main-shell">
         <MuelReveal as="section" className="io-reveal section-emphasis-shell" delayMultiplier={0}>

@@ -15,11 +15,13 @@ import { getResolvedResearchPreset, isResearchPresetKey, type ResearchPresetKey,
 interface ResearchPageLayoutProps {
   presetKey: ResearchPresetKey;
   mainClassName?: string;
+  user?: { id: string; username: string; avatar?: string | null; isPresetAdmin?: boolean } | null;
 }
 
 export const ResearchPageLayout = ({
   presetKey,
   mainClassName,
+  user,
 }: ResearchPageLayoutProps) => {
   const location = useLocation();
   const { tokens } = useMuelMotion();
@@ -70,7 +72,7 @@ export const ResearchPageLayout = ({
 
   return (
     <div className="surface-page surface-bridge hud-grid research-page-shell" style={motionCssVars}>
-      <AppHeader fixed animated={false} actions={<TopSectionSwitcher />} />
+      <AppHeader fixed animated={false} actions={<TopSectionSwitcher isAuthenticated={Boolean(user)} isPresetAdmin={Boolean(user?.isPresetAdmin)} />} />
 
       <main className={resolvedMainClassName}>
         <ResearchPresetHero preset={preset} />

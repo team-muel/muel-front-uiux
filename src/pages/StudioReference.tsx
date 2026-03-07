@@ -1,6 +1,10 @@
 import React from 'react';
 import { ResearchPageLayout } from '../components/sections/ResearchPageLayout';
 
-export const StudioReference: React.FC = () => {
-  return <ResearchPageLayout presetKey="studio" />;
+interface StudioReferenceProps {
+  user?: { id: string; username: string; avatar?: string | null; isPresetAdmin?: boolean } | null;
+}
+
+export const StudioReference: React.FC<StudioReferenceProps> = ({ user }) => {
+  return <ResearchPageLayout presetKey="studio" user={user} />;
 };

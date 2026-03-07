@@ -3,9 +3,13 @@ import { useEffect, useState } from 'react';
 import { ResearchPageLayout } from '../components/sections/ResearchPageLayout';
 import { apiFetch, buildApiUrl } from '../config';
 
-export const EmbeddedApp = () => {
+interface EmbeddedAppProps {
+  user?: { id: string; username: string; avatar?: string | null; isPresetAdmin?: boolean } | null;
+}
+
+export const EmbeddedApp = ({ user }: EmbeddedAppProps) => {
   const [authStatus, setAuthStatus] = useState<string | null>(null);
-  const [user, setUser] = useState<{ id: string; username: string; avatar: string | null } | null>(null);
+  const [sdkUser, setSdkUser] = useState<{ id: string; username: string; avatar: string | null } | null>(null);
 
   useEffect(() => {
     const isEmbeddedSurface = window.self !== window.top;
@@ -28,7 +32,7 @@ export const EmbeddedApp = () => {
           const avatarUrl = sdkUser.avatar
             ? `https://cdn.discordapp.com/avatars/${sdkUser.id}/${sdkUser.avatar}.png`
             : null;
-          setUser({
+          setSdkUser({
             id: sdkUser.id,
             username: sdkUser.username,
             avatar: avatarUrl,
@@ -67,14 +71,14 @@ export const EmbeddedApp = () => {
 
   return (
     <>
-      <ResearchPageLayout presetKey="embedded" />
-      {user && (
+      <ResearchPageLayout presetKey="embedded" user={user} />
+      {sdkUser && (
         <div style={{ position: 'fixed', bottom: 8, right: 8, background: '#eef', padding: 8, borderRadius: 6 }}>
-          <strong>{user.username}</strong>
-          {user.avatar && <img src={buildApiUrl(user.avatar)} alt="avatar" style={{ width: 24, height: 24, marginLeft: 8, borderRadius: 4 }} />}
+          <strong>{sdkUser.username}</strong>
+          {sdkUser.avatar && <img src={buildApiUrl(sdkUser.avatar)} alt="avatar" style={{ width: 24, height: 24, marginLeft: 8, borderRadius: 4 }} />}
         </div>
       )}
-      {authStatus === 'ok' && !user && <div style={{ display: 'none' }} />}
+      {authStatus === 'ok' && !sdkUser && <div style={{ display: 'none' }} />}
       {authStatus && authStatus !== 'ok' && (
         <div style={{ position: 'fixed', bottom: 8, left: 8, background: '#fee', padding: 8 }}>
           Auth status: {authStatus}

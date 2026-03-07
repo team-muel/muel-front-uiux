@@ -135,6 +135,15 @@ export const useFredPlayground = (selectedIds: string[], range: FredPlaygroundRa
   });
 
   useEffect(() => {
+    if (!DATA_POLICY.enableFredPlaygroundBackend) {
+      if (DATA_POLICY.allowFredPlaygroundFallback) {
+        setState(buildFallbackPayload(selectedIds, range, 'FRED backend endpoint is disabled by policy'));
+      } else {
+        setState(buildUnavailablePayload('FRED backend endpoint is disabled by policy'));
+      }
+      return;
+    }
+
     if (!selectedIds.length) {
       if (DATA_POLICY.allowFredPlaygroundFallback) {
         setState(buildFallbackPayload([], range, 'At least one series must be selected'));

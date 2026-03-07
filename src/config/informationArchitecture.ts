@@ -1,11 +1,11 @@
-import { Compass, Headset, LineChart, Newspaper, TabletSmartphone, type LucideIcon } from 'lucide-react';
+import { Activity, Compass, Headset, LineChart, Newspaper, TabletSmartphone, type LucideIcon } from 'lucide-react';
 import { ROUTES, type AppRoute } from './routes';
 
 export const BOT_INVITE_URL = 'https://discord.com/api/oauth2/authorize?client_id=1476491781221646480&permissions=8&scope=bot%20applications.commands';
 
 export type IaGroup = 'primary' | 'operations' | 'external';
-export type IaAccessPolicy = 'public' | 'authenticated';
-export type IaViewMode = 'home' | 'playground' | 'in-app' | 'operations' | 'studio' | 'support';
+export type IaAccessPolicy = 'public' | 'authenticated' | 'admin';
+export type IaViewMode = 'home' | 'playground' | 'in-app' | 'quant' | 'operations' | 'studio' | 'support';
 
 export type IaNode = {
   id: string;
@@ -18,7 +18,7 @@ export type IaNode = {
   mode: IaViewMode;
   access: IaAccessPolicy;
   purpose: string;
-  hubId?: 'home' | 'playground' | 'in-app' | 'studio' | 'support';
+  hubId?: 'home' | 'playground' | 'in-app' | 'quant' | 'studio' | 'support';
   order: number;
   showInNav?: boolean;
 };
@@ -64,6 +64,19 @@ export const IA_NODES: IaNode[] = [
     order: 3,
   },
   {
+    id: 'quant',
+    label: '퀀트',
+    shortLabel: '퀀트',
+    to: ROUTES.quant,
+    icon: Activity,
+    group: 'operations',
+    mode: 'quant',
+    access: 'admin',
+    purpose: '퀀트 트레이딩 운영 콘솔',
+    hubId: 'quant',
+    order: 4,
+  },
+  {
     id: 'studio',
     label: '후원',
     shortLabel: '후원',
@@ -74,7 +87,7 @@ export const IA_NODES: IaNode[] = [
     access: 'public',
     purpose: '후원 및 멤버십 안내 허브',
     hubId: 'studio',
-    order: 4,
+    order: 5,
   },
   {
     id: 'support',
@@ -87,7 +100,7 @@ export const IA_NODES: IaNode[] = [
     access: 'public',
     purpose: '고객지원 및 FAQ 허브',
     hubId: 'support',
-    order: 5,
+    order: 6,
   },
 ];
 
@@ -114,4 +127,7 @@ export const getPrimaryFlowPosition = (route: AppRoute) => {
 
 export const getIaNodeByRoute = (route: string) => IA_NODES.find((node) => !node.external && node.to === route);
 
-export const isRouteProtected = (route: string) => getIaNodeByRoute(route)?.access === 'authenticated';
+export const isRouteProtected = (route: string) => {
+  const access = getIaNodeByRoute(route)?.access;
+  return access === 'authenticated' || access === 'admin';
+};

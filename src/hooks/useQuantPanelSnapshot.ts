@@ -111,6 +111,28 @@ export const useQuantPanelSnapshot = (): UseQuantPanelSnapshotState => {
   });
 
   useEffect(() => {
+    if (!DATA_POLICY.enableQuantPanelBackend) {
+      if (!DATA_POLICY.allowQuantPanelFallback) {
+        setState({
+          snapshot: {
+            source: 'fallback',
+            metrics: [],
+          },
+          loading: false,
+          source: 'fallback',
+          error: 'Quant backend endpoint is disabled by policy',
+        });
+      } else {
+        setState({
+          snapshot: buildFallbackSnapshot(),
+          loading: false,
+          source: 'fallback',
+          error: 'Quant backend endpoint is disabled by policy',
+        });
+      }
+      return;
+    }
+
     let cancelled = false;
 
     const load = async () => {

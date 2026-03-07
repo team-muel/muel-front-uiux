@@ -11,7 +11,11 @@ import { UiButton } from '../components/ui/UiButton';
 import { useMuelMotion } from '../hooks/useMuelMotion';
 import { getMuelMotionCssVars } from '../lib/getMuelMotionCssVars';
 
-export const Playground = () => {
+interface PlaygroundProps {
+  user?: { id: string; username: string; avatar?: string | null; isPresetAdmin?: boolean } | null;
+}
+
+export const Playground = ({ user }: PlaygroundProps) => {
   const { tokens } = useMuelMotion();
   const motionCssVars = getMuelMotionCssVars(tokens) as CSSProperties;
   const financeThemeCssVars = getFinanceThemeCssVars();
@@ -19,7 +23,7 @@ export const Playground = () => {
 
   return (
     <div className="surface-page surface-bridge hud-grid research-page-shell finance-shell" style={pageStyle}>
-      <AppHeader fixed animated={false} actions={<TopSectionSwitcher />} />
+      <AppHeader fixed animated={false} actions={<TopSectionSwitcher isAuthenticated={Boolean(user)} isPresetAdmin={Boolean(user?.isPresetAdmin)} />} />
 
       <main id="playground-main" className="section-wrap section-v-80 section-cluster dashboard-kpay-flow dashboard-main-shell">
         <MuelReveal as="section" className="finance-board finance-playground-shell" delayMultiplier={0}>

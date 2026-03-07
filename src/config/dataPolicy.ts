@@ -16,6 +16,8 @@ const parseBoolean = (value: string | undefined, defaultValue: boolean) => {
 };
 
 export const DATA_POLICY = {
+  enableFredPlaygroundBackend: parseBoolean(import.meta.env.VITE_ENABLE_FRED_PLAYGROUND_BACKEND as string | undefined, true),
+  enableQuantPanelBackend: parseBoolean(import.meta.env.VITE_ENABLE_QUANT_PANEL_BACKEND as string | undefined, true),
   allowFredPlaygroundFallback: parseBoolean(import.meta.env.VITE_ALLOW_FRED_PLAYGROUND_FALLBACK as string | undefined, true),
   allowFredIndicatorFallback: parseBoolean(import.meta.env.VITE_ALLOW_FRED_INDICATOR_FALLBACK as string | undefined, true),
   allowQuantPanelFallback: parseBoolean(import.meta.env.VITE_ALLOW_QUANT_PANEL_FALLBACK as string | undefined, true),
